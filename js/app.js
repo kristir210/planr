@@ -173,12 +173,208 @@ window.toggleFolder = async function(folderId, workspaceId, colour) {
   body.appendChild(addNoteBtn)
 }
 
-window.openFolder = function(folderId, type) {
-  console.log('Open folder:', folderId, type)
+window.openFolder = async function(folderId, type) {
+  if (type === 'tasks') {
+    loadTaskView(folderId)
+  } else {
+    loadNotesView(folderId)
+  }
 }
 
-window.addFolder = function(workspaceId, colour) {
-  console.log('Add folder to workspace:', workspaceId)
+async function loadTaskView(folderId) {
+  const { data: folder } = await supabase
+    .from('folders')
+    .select('*, workspaces(name, colour)')
+    .eq('id', folderId)
+    .single()
+
+  const { data: tasks } = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('folder_id', folderId)
+    .eq('done', false)
+    .order('position')
+
+  window.currentFolderId = folderId
+  window.currentFolderColour = folder.workspaces.colour
+
+  const main = document.getElementById('main-content')
+  main.innerHTML = `
+    <div class="task-view">
+      <div class="task-view-header">
+        <div class="task-view-title">
+          <span class="task-view-dot" style="background:${folder.workspaces.colour}"></span>
+          <h2>${folder.name}</h2>
+        </div>
+        <span class="task-view-ws">${folder.workspaces.name}</span>
+      </div>
+      <div class="task-toolbar">
+        <span class="task-col-main">Task</span>
+        <span class="task-col">Priority</span>
+        <span class="task-col">Tag</span>
+        <span class="task-col">Deadline</span>
+      </div>
+      <div class="task-list" id="task-list">
+        ${tasks.map(t => renderTask(t, folder.workspaces.colour)).join('')}
+      </div>
+      <div class="task-add-row" onclick="addTaskInline('${folderId}')">
+        <span>+</span> Add task
+      </div>
+      <div class="task-completed-btn" onclick="loadCompletedTasks('${folderId}')">
+        Show completed tasks
+      </div>
+    </div>
+  `
+}
+
+function renderTask(task, colour) {
+  const overdue = task.due_date && new Date(task.due_date) < new Date(new Date().toDateString())
+  return `
+    <div class="task-row" data-id="${task.id}">
+      <div class="task-check ${task.done ? 'done' : ''}"
+           style="border-color:${colour}80"
+           onclick="toggleTask('${task.id}', ${task.done}, '${colour}')">
+        ${task.done ? '✓' : ''}
+      </div>
+      <div class="task-title ${task.done ? 'done' : ''}"
+           onclick="openTaskEdit('${task.id}')">${task.title}</div>
+      <div class="task-col">
+        <span class="priority-badge priority-${task.priority || 'none'}">${task.priority || '—'}</span>
+      </div>
+      <div class="task-col task-tag">${task.tag || '—'}</div>
+      <div class="task-col task-deadline ${overdue ? 'overdue' : ''}">
+        ${formatDate(task.due_date)}
+      </div>
+    </div>
+  `
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '—'
+  return new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short' })
+}
+
+window.toggleTask = async function(taskId, currentDone, colour) {
+  const newDone = !currentDone
+  await supabase
+    .from('tasks')
+    .update({ done: newDone, completed_at: newDone ? new Date().toISOString() : null })
+    .eq('id', taskId)
+
+  const row = document.querySelector(`.task-row[data-id="${taskId}"]`)
+  if (!row) return
+
+  if (newDone) {
+    // Fade out and remove the row since we only show incomplete tasks
+    row.style.transition = 'opacity 0.3s'
+    row.style.opacity = '0'
+    setTimeout(() => row.remove(), 300)
+  }
+}
+
+window.addTaskInline = function(folderId) {
+  // Remove any existing input row
+  document.getElementById('task-input-row')?.remove()
+
+  const list = document.getElementById('task-list')
+  const inputRow = document.createElement('div')
+  inputRow.id = 'task-input-row'
+  inputRow.className = 'task-row task-row--input'
+  inputRow.innerHTML = `
+    <div class="task-check" style="border-color:${window.currentFolderColour}80"></div>
+    <input class="task-input" id="task-title-input" placeholder="Task name..." autofocus />
+    <div class="task-col">
+      <select class="task-select" id="task-priority-input">
+        <option value="none">—</option>
+        <option value="high">High</option>
+        <option value="mid">Mid</option>
+        <option value="low">Low</option>
+      </select>
+    </div>
+    <div class="task-col">
+      <input class="task-input task-input--small" id="task-tag-input" placeholder="Tag..." />
+    </div>
+    <div class="task-col">
+      <input class="task-input task-input--small" id="task-date-input" type="date" />
+    </div>
+  `
+  list.appendChild(inputRow)
+
+  const input = document.getElementById('task-title-input')
+  input.focus()
+
+  input.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter') await saveNewTask(folderId)
+    if (e.key === 'Escape') inputRow.remove()
+  })
+}
+
+async function saveNewTask(folderId) {
+  const title = document.getElementById('task-title-input').value.trim()
+  if (!title) return
+
+  const priority = document.getElementById('task-priority-input').value
+  const tag = document.getElementById('task-tag-input').value.trim()
+  const due_date = document.getElementById('task-date-input').value || null
+
+  const { data: task, error } = await supabase
+    .from('tasks')
+    .insert({ folder_id: folderId, workspace_id: null, title, priority, tag, due_date, position: 0 })
+    .select()
+    .single()
+
+  if (error) { console.error(error); return }
+
+  document.getElementById('task-input-row')?.remove()
+
+  const list = document.getElementById('task-list')
+  list.insertAdjacentHTML('beforeend', renderTask(task, window.currentFolderColour))
+}
+
+window.loadCompletedTasks = async function(folderId) {
+  const { data: tasks } = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('folder_id', folderId)
+    .eq('done', true)
+    .order('completed_at', { ascending: false })
+
+  const btn = document.querySelector('.task-completed-btn')
+  const list = document.getElementById('task-list')
+
+  const existing = document.getElementById('completed-section')
+  if (existing) {
+    existing.remove()
+    btn.textContent = 'Show completed tasks'
+    return
+  }
+
+  const section = document.createElement('div')
+  section.id = 'completed-section'
+  section.innerHTML = `
+    <div class="task-completed-header">Completed (${tasks.length})</div>
+    ${tasks.map(t => `
+      <div class="task-row task-row--done" data-id="${t.id}">
+        <div class="task-check done" style="border-color:${window.currentFolderColour}80">✓</div>
+        <div class="task-title done">${t.title}</div>
+        <div class="task-col"><span class="priority-badge priority-${t.priority || 'none'}">${t.priority || '—'}</span></div>
+        <div class="task-col task-tag">${t.tag || '—'}</div>
+        <div class="task-col task-deadline">${formatDate(t.due_date)}</div>
+      </div>
+    `).join('')}
+  `
+  list.after(section)
+  btn.textContent = 'Hide completed tasks'
+}
+
+window.openTaskEdit = function(taskId) {
+  console.log('Edit task:', taskId)
+  // Task edit modal comes next
+}
+
+function loadNotesView(folderId) {
+  const main = document.getElementById('main-content')
+  main.innerHTML = '<div class="main-placeholder">Notes view coming soon</div>'
 }
 
 // ── INIT ──────────────────────────────────────────────────
