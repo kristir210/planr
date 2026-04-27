@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Planr</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="app-page">
+
+  <!-- PIN GUARD — redirects back to PIN if not authenticated -->
+  <script>
+    if (sessionStorage.getItem('planr_auth') !== 'true') {
+      window.location.href = 'pin.html'
+    }
+  </script>
+
+  <div class="app">
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <span class="topbar-logo">Planr</span>
+      <div class="topbar-views">
+        <button class="topbar-btn active" data-view="month">Month</button>
+        <button class="topbar-btn" data-view="week">Week</button>
+        <button class="topbar-btn" data-view="day">Day</button>
+      </div>
+      <div class="topbar-right">
+        <button class="topbar-btn" id="panel-toggle">Panel</button>
+        <span class="topbar-badge" id="notif-badge"></span>
+      </div>
+    </header>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+
+      <div class="sidebar-views">
+        <div class="sidebar-label">Views</div>
+        <div class="sidebar-row active" data-view="calendar">◫ Calendar</div>
+        <div class="sidebar-row" data-view="habits">◉ Habits</div>
+      </div>
+
+      <div class="sidebar-divider"></div>
+
+      <div class="sidebar-workspaces">
+        <div class="sidebar-label">Workspaces</div>
+        <div id="workspace-list">
+          <!-- Workspaces loaded dynamically from Supabase -->
+          <div class="sidebar-loading">Loading...</div>
+        </div>
+        <div class="sidebar-new-workspace">+ New workspace</div>
+      </div>
+
+      <div class="sidebar-bottom">
+        <div class="sidebar-row" id="settings-btn">⚙ Settings</div>
+      </div>
+
+    </aside>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="main-content" id="main-content">
+      <!-- Content loaded dynamically depending on what's selected -->
+      <div class="main-placeholder">Select a view or workspace to get started</div>
+    </main>
+
+    <!-- RIGHT PANEL -->
+    <aside class="right-panel hide" id="right-panel">
+      <div class="panel-content">
+        <!-- Today's tasks and habits loaded dynamically -->
+        <div class="panel-title">Today</div>
+      </div>
+    </aside>
+
+    <!-- PANEL TAB (visible when panel is closed) -->
+    <div class="panel-tab" id="panel-tab">
+      <span>Today</span>
+    </div>
+
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

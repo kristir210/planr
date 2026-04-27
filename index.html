@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Planr</title>
+  <script type="module">
+    // If already authenticated send straight to app
+    // otherwise send to PIN screen
+    if (sessionStorage.getItem('planr_auth') === 'true') {
+      window.location.href = 'app.html'
+    } else {
+      window.location.href = 'pin.html'
+    }
+  </script>
+</head>
+<body></body>
+</html>
