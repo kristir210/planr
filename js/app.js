@@ -181,6 +181,7 @@ window.openFolder = async function(folderId, type) {
   }
 }
 
+// ── TASK VIEW ─────────────────────────────────────────────
 async function loadTaskView(folderId) {
   const { data: folder } = await supabase
     .from('folders')
@@ -210,8 +211,7 @@ async function loadTaskView(folderId) {
       </div>
       <div class="task-toolbar">
         <span class="task-col-main">Task</span>
-        <span class="task-col">Priority</span>
-        <span class="task-col">Tag</span>
+        <span class="task-col">Status</span>
         <span class="task-col">Deadline</span>
       </div>
       <div class="task-list" id="task-list">
@@ -229,19 +229,26 @@ async function loadTaskView(folderId) {
 
 function renderTask(task, colour) {
   const overdue = task.due_date && new Date(task.due_date) < new Date(new Date().toDateString())
+
+  const statusLabels = {
+    not_started: '○ Not started',
+    in_progress: '⟳ In progress',
+    done: '✓ Done'
+  }
+  const statusHtml = task.type === 'project'
+    ? `<span class="status-badge status-${task.status || 'not_started'}">${statusLabels[task.status || 'not_started']}</span>`
+    : `<span class="status-none">—</span>`
+
   return `
     <div class="task-row" data-id="${task.id}">
       <div class="task-check ${task.done ? 'done' : ''}"
            style="border-color:${colour}80"
-           onclick="toggleTask('${task.id}', ${task.done}, '${colour}')">
+           onclick="toggleTask('${task.id}', ${task.done})">
         ${task.done ? '✓' : ''}
       </div>
       <div class="task-title ${task.done ? 'done' : ''}"
            onclick="openTaskEdit('${task.id}')">${task.title}</div>
-      <div class="task-col">
-        <span class="priority-badge priority-${task.priority || 'none'}">${task.priority || '—'}</span>
-      </div>
-      <div class="task-col task-tag">${task.tag || '—'}</div>
+      <div class="task-col">${statusHtml}</div>
       <div class="task-col task-deadline ${overdue ? 'overdue' : ''}">
         ${formatDate(task.due_date)}
       </div>
@@ -254,7 +261,7 @@ function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short' })
 }
 
-window.toggleTask = async function(taskId, currentDone, colour) {
+window.toggleTask = async function(taskId, currentDone) {
   const newDone = !currentDone
   await supabase
     .from('tasks')
@@ -265,7 +272,6 @@ window.toggleTask = async function(taskId, currentDone, colour) {
   if (!row) return
 
   if (newDone) {
-    // Fade out and remove the row since we only show incomplete tasks
     row.style.transition = 'opacity 0.3s'
     row.style.opacity = '0'
     setTimeout(() => row.remove(), 300)
@@ -273,7 +279,6 @@ window.toggleTask = async function(taskId, currentDone, colour) {
 }
 
 window.addTaskInline = function(folderId) {
-  // Remove any existing input row
   document.getElementById('task-input-row')?.remove()
 
   const list = document.getElementById('task-list')
@@ -282,18 +287,8 @@ window.addTaskInline = function(folderId) {
   inputRow.className = 'task-row task-row--input'
   inputRow.innerHTML = `
     <div class="task-check" style="border-color:${window.currentFolderColour}80"></div>
-    <input class="task-input" id="task-title-input" placeholder="Task name..." autofocus />
-    <div class="task-col">
-      <select class="task-select" id="task-priority-input">
-        <option value="none">—</option>
-        <option value="high">High</option>
-        <option value="mid">Mid</option>
-        <option value="low">Low</option>
-      </select>
-    </div>
-    <div class="task-col">
-      <input class="task-input task-input--small" id="task-tag-input" placeholder="Tag..." />
-    </div>
+    <input class="task-input" id="task-title-input" placeholder="Task name..." />
+    <div class="task-col"></div>
     <div class="task-col">
       <input class="task-input task-input--small" id="task-date-input" type="date" />
     </div>
@@ -313,13 +308,11 @@ async function saveNewTask(folderId) {
   const title = document.getElementById('task-title-input').value.trim()
   if (!title) return
 
-  const priority = document.getElementById('task-priority-input').value
-  const tag = document.getElementById('task-tag-input').value.trim()
   const due_date = document.getElementById('task-date-input').value || null
 
   const { data: task, error } = await supabase
     .from('tasks')
-    .insert({ folder_id: folderId, workspace_id: null, title, priority, tag, due_date, position: 0 })
+    .insert({ folder_id: folderId, workspace_id: null, title, due_date, position: 0 })
     .select()
     .single()
 
@@ -357,8 +350,7 @@ window.loadCompletedTasks = async function(folderId) {
       <div class="task-row task-row--done" data-id="${t.id}">
         <div class="task-check done" style="border-color:${window.currentFolderColour}80">✓</div>
         <div class="task-title done">${t.title}</div>
-        <div class="task-col"><span class="priority-badge priority-${t.priority || 'none'}">${t.priority || '—'}</span></div>
-        <div class="task-col task-tag">${t.tag || '—'}</div>
+        <div class="task-col"><span class="status-none">—</span></div>
         <div class="task-col task-deadline">${formatDate(t.due_date)}</div>
       </div>
     `).join('')}
@@ -367,18 +359,133 @@ window.loadCompletedTasks = async function(folderId) {
   btn.textContent = 'Hide completed tasks'
 }
 
-window.openTaskEdit = function(taskId) {
-  console.log('Edit task:', taskId)
-  // Task edit modal comes next
+// ── TASK EDIT MODAL ───────────────────────────────────────
+window.openTaskEdit = async function(taskId) {
+  const { data: task } = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('id', taskId)
+    .single()
+
+  document.getElementById('task-edit-modal')?.remove()
+
+  const isProject = task.type === 'project'
+
+  const modal = document.createElement('div')
+  modal.id = 'task-edit-modal'
+  modal.className = 'popup'
+  modal.innerHTML = `
+    <div class="popup-box popup-box--wide">
+      <div class="popup-header">
+        <div class="popup-title">Edit task</div>
+        <button class="popup-close" onclick="closeTaskEdit()">✕</button>
+      </div>
+
+      <div class="edit-field">
+        <label class="edit-label">Title</label>
+        <input class="popup-input" id="edit-title" value="${task.title}" />
+      </div>
+
+      <div class="edit-field">
+        <label class="edit-label">Type</label>
+        <div class="edit-type-row">
+          <button class="edit-type-btn ${!isProject ? 'active' : ''}"
+                  onclick="setTaskType('simple')">Simple</button>
+          <button class="edit-type-btn ${isProject ? 'active' : ''}"
+                  onclick="setTaskType('project')">Project</button>
+        </div>
+      </div>
+
+      <div class="edit-field" id="edit-status-field" style="display:${isProject ? 'flex' : 'none'}">
+        <label class="edit-label">Status</label>
+        <div class="edit-status-row">
+          <button class="edit-status-btn ${task.status === 'not_started' || !task.status ? 'active' : ''}"
+                  onclick="setTaskStatus('not_started')">○ Not started</button>
+          <button class="edit-status-btn ${task.status === 'in_progress' ? 'active' : ''}"
+                  onclick="setTaskStatus('in_progress')">⟳ In progress</button>
+          <button class="edit-status-btn ${task.status === 'done' ? 'active' : ''}"
+                  onclick="setTaskStatus('done')">✓ Done</button>
+        </div>
+      </div>
+
+      <div class="edit-row">
+        <div class="edit-field">
+          <label class="edit-label">Deadline</label>
+          <input class="popup-input" id="edit-deadline" type="date" value="${task.due_date || ''}" />
+        </div>
+        <div class="edit-field">
+          <label class="edit-label">Reminder time</label>
+          <input class="popup-input" id="edit-reminder" type="time" value="${task.reminder_time ? task.reminder_time.substring(11,16) : ''}" />
+        </div>
+      </div>
+
+      <div class="popup-actions">
+        <button class="popup-btn popup-btn--danger" onclick="deleteTask('${task.id}')">Delete</button>
+        <div style="display:flex;gap:8px;">
+          <button class="popup-btn" onclick="closeTaskEdit()">Cancel</button>
+          <button class="popup-btn popup-btn--primary" onclick="saveTaskEdit('${task.id}')">Save</button>
+        </div>
+      </div>
+    </div>
+  `
+
+  document.body.appendChild(modal)
+  modal.addEventListener('click', e => {
+    if (e.target === modal) closeTaskEdit()
+  })
+  document.getElementById('edit-title').focus()
 }
 
-function loadNotesView(folderId) {
-  const main = document.getElementById('main-content')
-  main.innerHTML = '<div class="main-placeholder">Notes view coming soon</div>'
+window.setTaskType = function(type) {
+  document.querySelectorAll('.edit-type-btn').forEach(b => b.classList.remove('active'))
+  document.querySelector(`.edit-type-btn[onclick="setTaskType('${type}')"]`).classList.add('active')
+  document.getElementById('edit-status-field').style.display = type === 'project' ? 'flex' : 'none'
 }
 
-// ── INIT ──────────────────────────────────────────────────
-loadWorkspaces()
+window.setTaskStatus = function(status) {
+  document.querySelectorAll('.edit-status-btn').forEach(b => b.classList.remove('active'))
+  document.querySelector(`.edit-status-btn[onclick="setTaskStatus('${status}')"]`).classList.add('active')
+}
+
+window.closeTaskEdit = function() {
+  document.getElementById('task-edit-modal')?.remove()
+}
+
+window.saveTaskEdit = async function(taskId) {
+  const title    = document.getElementById('edit-title').value.trim()
+  const due_date = document.getElementById('edit-deadline').value || null
+  const timeVal  = document.getElementById('edit-reminder').value
+
+  const typeBtn  = document.querySelector('.edit-type-btn.active')
+  const type     = typeBtn?.textContent.trim().toLowerCase() === 'project' ? 'project' : 'simple'
+
+  const statusBtn = document.querySelector('.edit-status-btn.active')
+  const status    = statusBtn
+    ? statusBtn.getAttribute('onclick').match(/'([^']+)'/)[1]
+    : 'not_started'
+
+  const reminder_time = timeVal
+    ? `${due_date || new Date().toISOString().split('T')[0]}T${timeVal}:00`
+    : null
+
+  if (!title) return
+
+  await supabase
+    .from('tasks')
+    .update({ title, due_date, reminder_time, type, status })
+    .eq('id', taskId)
+
+  closeTaskEdit()
+  loadTaskView(window.currentFolderId)
+}
+
+window.deleteTask = async function(taskId) {
+  if (!confirm('Delete this task?')) return
+  await supabase.from('tasks').delete().eq('id', taskId)
+  closeTaskEdit()
+  loadTaskView(window.currentFolderId)
+}
+
 // ── ADD FOLDER ────────────────────────────────────────────
 let currentWorkspaceId = null
 let currentWorkspaceColour = null
@@ -390,7 +497,6 @@ window.addFolder = function(workspaceId, colour) {
 }
 
 function showAddFolderPopup() {
-  // Remove existing popup if any
   document.getElementById('add-folder-popup')?.remove()
 
   const popup = document.createElement('div')
@@ -443,22 +549,22 @@ window.createFolder = async function() {
 
   const { error } = await supabase
     .from('folders')
-    .insert({
-      workspace_id: currentWorkspaceId,
-      name,
-      type,
-      position: 0
-    })
+    .insert({ workspace_id: currentWorkspaceId, name, type, position: 0 })
 
-  if (error) {
-    alert('Failed to create folder: ' + error.message)
-    return
-  }
+  if (error) { alert('Failed to create folder: ' + error.message); return }
 
   closePopup()
 
-  // Reload folders for this workspace
   const body = document.getElementById('wb-' + currentWorkspaceId)
   body.innerHTML = ''
   loadFolders(currentWorkspaceId, currentWorkspaceColour)
 }
+
+// ── NOTES VIEW (placeholder) ──────────────────────────────
+function loadNotesView(folderId) {
+  const main = document.getElementById('main-content')
+  main.innerHTML = '<div class="main-placeholder">Notes view coming soon</div>'
+}
+
+// ── INIT ──────────────────────────────────────────────────
+loadWorkspaces()
