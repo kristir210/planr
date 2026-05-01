@@ -1,10 +1,11 @@
 import { supabase } from './supabase.js'
+console.log('tasks.js loaded')
 
 // ── TASK VIEW ─────────────────────────────────────────────
 export async function loadTaskView(folderId) {
   const { data: folder } = await supabase
     .from('folders')
-    .select('*, workspaces(name, colour)')
+    .select('*, workspaces(id, name, colour)')
     .eq('id', folderId)
     .single()
 
@@ -17,6 +18,7 @@ export async function loadTaskView(folderId) {
 
   window.currentFolderId = folderId
   window.currentFolderColour = folder.workspaces.colour
+  window.currentWorkspaceId = folder.workspaces.id
 
   const main = document.getElementById('main-content')
   main.innerHTML = `
@@ -36,14 +38,23 @@ export async function loadTaskView(folderId) {
       <div class="task-list" id="task-list">
         ${tasks.map(t => renderTask(t, folder.workspaces.colour)).join('')}
       </div>
-      <div class="task-add-row" onclick="addTaskInline('${folderId}')">
+      <div class="task-add-row" id="task-add-row">
         <span>+</span> Add task
       </div>
-      <div class="task-completed-btn" onclick="loadCompletedTasks('${folderId}')">
+      <div class="task-completed-btn" id="task-completed-btn">
         Show completed tasks
       </div>
     </div>
   `
+
+  // Wire up buttons directly with correct closure values
+  document.getElementById('task-add-row').addEventListener('click', () => {
+    addTaskInline(folderId, folder.workspaces.id, folder.workspaces.colour)
+  })
+
+  document.getElementById('task-completed-btn').addEventListener('click', () => {
+    loadCompletedTasks(folderId)
+  })
 }
 
 function renderTask(task, colour) {
@@ -99,7 +110,7 @@ window.toggleTask = async function(taskId, currentDone) {
 }
 
 // ── ADD TASK INLINE ───────────────────────────────────────
-window.addTaskInline = function(folderId) {
+function addTaskInline(folderId, workspaceId, colour) {
   document.getElementById('task-input-row')?.remove()
 
   const list = document.getElementById('task-list')
@@ -107,7 +118,7 @@ window.addTaskInline = function(folderId) {
   inputRow.id = 'task-input-row'
   inputRow.className = 'task-row task-row--input'
   inputRow.innerHTML = `
-    <div class="task-check" style="border-color:${window.currentFolderColour}80"></div>
+    <div class="task-check" style="border-color:${colour}80"></div>
     <input class="task-input" id="task-title-input" placeholder="Task name..." />
     <div class="task-col"></div>
     <div class="task-col">
@@ -120,33 +131,56 @@ window.addTaskInline = function(folderId) {
   input.focus()
 
   input.addEventListener('keydown', async (e) => {
-    if (e.key === 'Enter') await saveNewTask(folderId)
-    if (e.key === 'Escape') inputRow.remove()
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      await saveNewTask(folderId, workspaceId, colour)
+    }
+    if (e.key === 'Escape') {
+      inputRow.remove()
+    }
   })
 }
 
-async function saveNewTask(folderId) {
-  const title = document.getElementById('task-title-input').value.trim()
+window.addTaskInline = addTaskInline
+
+async function saveNewTask(folderId, workspaceId, colour) {
+  const titleEl   = document.getElementById('task-title-input')
+  const dateEl    = document.getElementById('task-date-input')
+
+  const title    = titleEl?.value.trim()
+  const due_date = dateEl?.value || null
+
   if (!title) return
 
-  const due_date = document.getElementById('task-date-input').value || null
+  console.log('Saving task:', { folderId, workspaceId, title, due_date })
 
   const { data: task, error } = await supabase
     .from('tasks')
-    .insert({ folder_id: folderId, workspace_id: null, title, due_date, position: 0 })
+    .insert({
+      folder_id:    folderId,
+      workspace_id: workspaceId,
+      title,
+      due_date,
+      position: 0
+    })
     .select()
     .single()
 
-  if (error) { console.error(error); return }
+  if (error) {
+    alert('Save error: ' + JSON.stringify(error))
+    return
+  }
+
+  console.log('Task saved:', task)
 
   document.getElementById('task-input-row')?.remove()
 
   const list = document.getElementById('task-list')
-  list.insertAdjacentHTML('beforeend', renderTask(task, window.currentFolderColour))
+  if (list) list.insertAdjacentHTML('beforeend', renderTask(task, colour))
 }
 
 // ── SHOW COMPLETED ────────────────────────────────────────
-window.loadCompletedTasks = async function(folderId) {
+async function loadCompletedTasks(folderId) {
   const { data: tasks } = await supabase
     .from('tasks')
     .select('*')
@@ -154,15 +188,17 @@ window.loadCompletedTasks = async function(folderId) {
     .eq('done', true)
     .order('completed_at', { ascending: false })
 
-  const btn = document.querySelector('.task-completed-btn')
+  const btn  = document.getElementById('task-completed-btn')
   const list = document.getElementById('task-list')
 
   const existing = document.getElementById('completed-section')
   if (existing) {
     existing.remove()
-    btn.textContent = 'Show completed tasks'
+    if (btn) btn.textContent = 'Show completed tasks'
     return
   }
+
+  const colour = window.currentFolderColour
 
   const section = document.createElement('div')
   section.id = 'completed-section'
@@ -170,7 +206,7 @@ window.loadCompletedTasks = async function(folderId) {
     <div class="task-completed-header">Completed (${tasks.length})</div>
     ${tasks.map(t => `
       <div class="task-row task-row--done" data-id="${t.id}">
-        <div class="task-check done" style="border-color:${window.currentFolderColour}80">✓</div>
+        <div class="task-check done" style="border-color:${colour}80">✓</div>
         <div class="task-title done">${t.title}</div>
         <div class="task-col"><span class="status-none">—</span></div>
         <div class="task-col task-deadline">${formatDate(t.due_date)}</div>
@@ -178,7 +214,7 @@ window.loadCompletedTasks = async function(folderId) {
     `).join('')}
   `
   list.after(section)
-  btn.textContent = 'Hide completed tasks'
+  if (btn) btn.textContent = 'Hide completed tasks'
 }
 
 // ── EDIT TASK MODAL ───────────────────────────────────────

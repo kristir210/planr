@@ -113,7 +113,7 @@ html, body {
 
 .app {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: 240px 1fr auto;
   grid-template-rows: 46px 1fr;
   height: 100vh;
   overflow: hidden;
@@ -240,6 +240,7 @@ html, body {
   position: relative;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .main-placeholder {
@@ -253,10 +254,16 @@ html, body {
   background: var(--bg-top);
   border-left: 1px solid var(--border);
   width: 285px;
-  flex-shrink: 0;
   transition: width 0.22s ease, opacity 0.2s ease;
   overflow: hidden;
   position: relative;
+  flex-shrink: 0;
+}
+
+.right-panel.hide {
+  width: 0 !important;
+  opacity: 0;
+  border-left: none;
 }
 
 .right-panel.hide {
@@ -826,4 +833,509 @@ html, body {
 
 .context-menu-item--danger:hover {
   background: #2a1010;
+}
+/* ── NOTES VIEW ───────────────────────────────────────── */
+.notes-view {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  height: 100%;
+  overflow: hidden;
+}
+
+.notes-list {
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-top);
+}
+
+.notes-list-header {
+  padding: 16px 14px 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.notes-list-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.notes-new-btn {
+  font-size: 11px;
+  font-family: inherit;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--amber-dim);
+  background: none;
+  color: var(--amber);
+  cursor: pointer;
+}
+
+.notes-new-btn:hover {
+  background: var(--amber-dim);
+}
+
+.notes-list-items {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.notes-empty {
+  font-size: 12px;
+  color: var(--text-dim);
+  padding: 16px 14px;
+}
+
+.note-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-radius: 4px;
+  margin: 1px 4px;
+  border-left: 2px solid transparent;
+}
+
+.note-item:hover {
+  background: var(--bg-mid);
+}
+
+.note-item.active {
+  background: var(--bg-mid);
+  border-left-color: var(--amber);
+}
+
+.note-item-title {
+  font-size: 12px;
+  color: var(--text);
+  font-weight: 500;
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.note-item-preview {
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 3px;
+}
+
+.note-item-date {
+  font-size: 10px;
+  color: var(--text-dim);
+  opacity: 0.6;
+}
+
+/* ── NOTES EDITOR ─────────────────────────────────────── */
+.notes-editor {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.notes-editor-empty {
+  margin: auto;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.notes-editor-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.notes-title-input {
+  font-size: 22px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 24px 32px 8px;
+  flex-shrink: 0;
+}
+
+.notes-title-input::placeholder {
+  color: var(--text-dim);
+}
+
+.notes-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 28px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.notes-toolbar button {
+  font-size: 12px;
+  font-family: inherit;
+  width: 28px;
+  height: 26px;
+  border-radius: 4px;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notes-toolbar button:hover {
+  background: var(--bg-mid);
+  color: var(--text);
+}
+
+.notes-toolbar-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+.notes-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 32px 32px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text);
+  outline: none;
+}
+
+.notes-body h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 16px 0 8px;
+}
+
+.notes-body p {
+  margin-bottom: 8px;
+}
+
+.notes-body ul, .notes-body ol {
+  padding-left: 20px;
+  margin-bottom: 8px;
+}
+
+.notes-body li {
+  margin-bottom: 4px;
+}
+
+.notes-save-indicator {
+  font-size: 10px;
+  color: var(--text-dim);
+  padding: 4px 32px 8px;
+  flex-shrink: 0;
+  text-align: right;
+}
+/* ── CALENDAR VIEW ────────────────────────────────────── */
+.calendar-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.calendar-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cal-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--amber);
+  min-width: 200px;
+  text-align: center;
+}
+
+.cal-nav-btn {
+  font-size: 13px;
+  font-family: inherit;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.cal-nav-btn:hover { color: var(--text); border-color: #3a3428; }
+
+.cal-today-btn {
+  font-size: 11px;
+  margin-left: 4px;
+}
+
+.cal-view-tabs {
+  display: flex;
+  gap: 3px;
+}
+
+.cal-view-btn {
+  font-size: 11px;
+  font-family: inherit;
+  padding: 4px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.cal-view-btn:hover { color: var(--text); }
+.cal-view-btn.active { background: var(--bg-mid); color: var(--amber); border-color: var(--amber-dim); }
+
+.calendar-legend {
+  display: flex;
+  gap: 14px;
+  padding: 7px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.cal-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.cal-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cal-legend-dot--holiday {
+  background: #4a4538;
+}
+
+.calendar-body {
+  flex: 1;
+  overflow: auto;
+  padding: 8px;
+}
+
+.cal-loading {
+  font-size: 12px;
+  color: var(--text-dim);
+  padding: 20px;
+  text-align: center;
+}
+
+/* ── MONTH GRID ───────────────────────────────────────── */
+.cal-month-grid {
+  display: grid;
+  grid-template-columns: 28px repeat(7, 1fr);
+  gap: 2px;
+  height: 100%;
+}
+
+.cal-week-label { font-size: 9px; color: var(--text-dim); }
+
+.cal-day-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-align: center;
+  padding: 4px 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cal-week-num {
+  font-size: 9px;
+  color: #2a2418;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 6px;
+  user-select: none;
+}
+
+.cal-cell {
+  background: var(--bg-mid);
+  border-radius: 4px;
+  padding: 5px 6px;
+  border: 1px solid var(--border);
+  min-height: 80px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cal-cell:hover { border-color: #3a3428; }
+.cal-cell--today { border-color: var(--amber-dim) !important; background: #1a1710; }
+.cal-cell--empty { background: transparent; border-color: transparent; cursor: default; }
+.cal-cell--holiday { background: #1a1814; }
+
+.cal-cell-num {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 2px;
+  font-weight: 500;
+}
+
+.cal-cell--today .cal-cell-num { color: var(--amber); }
+
+.cal-cell-items {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.cal-item {
+  font-size: 9px;
+  padding: 2px 5px;
+  border-radius: 2px;
+  border-left: 2px solid transparent;
+  background: var(--bg-top);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.5;
+}
+
+.cal-item--holiday {
+  color: #4a4538 !important;
+  background: #1a1814;
+  font-style: italic;
+}
+
+.cal-item--overdue {
+  color: #b05050 !important;
+  background: #2a1010;
+}
+
+.cal-more {
+  font-size: 9px;
+  color: var(--text-dim);
+  padding: 1px 4px;
+}
+
+/* ── WEEK VIEW ────────────────────────────────────────── */
+.cal-week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  height: 100%;
+}
+
+.cal-week-col {
+  background: var(--bg-mid);
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cal-week-col--today { border-color: var(--amber-dim); background: #1a1710; }
+
+.cal-week-col-header {
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.cal-week-day-name {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cal-week-day-num {
+  font-size: 14px;
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+.cal-week-day-num--today { color: var(--amber); }
+
+.cal-week-col-items {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* ── DAY VIEW ─────────────────────────────────────────── */
+.cal-day-view {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cal-day-empty {
+  font-size: 13px;
+  color: var(--text-dim);
+  padding: 20px;
+  text-align: center;
+}
+
+.cal-day-item {
+  padding: 10px 14px;
+  background: var(--bg-mid);
+  border-radius: 6px;
+  border-left: 3px solid transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cal-day-item-title {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.cal-day-item-time {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.cal-day-item-ws {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }

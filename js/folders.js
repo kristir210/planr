@@ -109,6 +109,10 @@ window.toggleFolder = async function(folderId, workspaceId, colour) {
   const addNoteBtn = document.createElement('div')
   addNoteBtn.className = 'sidebar-add-folder sidebar-add-folder--sub'
   addNoteBtn.textContent = '+ Add note'
+  addNoteBtn.onclick = () => {
+    openFolder(folderId, 'notes')
+    setTimeout(() => window.createNote(folderId), 100)
+  }
   body.appendChild(addNoteBtn)
 }
 
@@ -141,8 +145,6 @@ window.showFolderMenu = function(e, folderId, workspaceId, colour) {
   `
 
   document.body.appendChild(menu)
-
-  // Close when clicking anywhere else
   setTimeout(() => {
     document.addEventListener('click', closeContextMenu, { once: true })
   }, 0)
@@ -184,7 +186,6 @@ window.deleteFolder = async function(folderId, workspaceId, colour) {
   body.innerHTML = ''
   loadFolders(workspaceId, colour)
 
-  // Clear main content if it was showing this folder
   if (window.currentFolderId === folderId) {
     document.getElementById('main-content').innerHTML =
       '<div class="main-placeholder">Select a view or workspace to get started</div>'
