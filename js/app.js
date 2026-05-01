@@ -1,6 +1,7 @@
 import { initPanel } from './panel.js'
 import { loadWorkspaces } from './workspaces.js'
 import { initCalendar } from './calendar.js'
+import { initHabits } from './habits.js'
 
 initPanel()
 loadWorkspaces()
@@ -15,8 +16,7 @@ document.querySelectorAll('.sidebar-row[data-view]').forEach(row => {
     if (view === 'calendar') {
       initCalendar()
     } else if (view === 'habits') {
-      document.getElementById('main-content').innerHTML =
-        '<div class="main-placeholder">Habits view coming soon</div>'
+      initHabits()
     }
   })
 })

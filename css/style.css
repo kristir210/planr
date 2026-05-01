@@ -1339,3 +1339,490 @@ html, body {
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
+/* ── RIGHT PANEL CONTENT ──────────────────────────────── */
+.panel-content {
+  padding: 14px;
+  width: 285px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.panel-date {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--amber);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  text-transform: capitalize;
+}
+
+.panel-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.panel-section-title {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 2px;
+}
+
+.panel-loading {
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 4px 0;
+}
+
+.panel-empty {
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 4px 0;
+  font-style: italic;
+}
+
+/* ── PANEL TASKS ──────────────────────────────────────── */
+.panel-task-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border-left: 2px solid transparent;
+  cursor: pointer;
+  background: var(--bg-mid);
+  margin-bottom: 3px;
+}
+
+.panel-task-item:hover {
+  background: #1d1a13;
+}
+
+.panel-task-check {
+  width: 15px;
+  height: 15px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+  margin-top: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.panel-task-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.panel-task-title {
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.panel-task-ws {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+/* ── PANEL HABITS ─────────────────────────────────────── */
+.panel-habit-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: var(--bg-mid);
+  margin-bottom: 3px;
+}
+
+.panel-habit-item.done {
+  opacity: 0.6;
+}
+
+.panel-habit-check {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.panel-habit-check.done {
+  background: var(--amber-dim);
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.panel-habit-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.panel-habit-title {
+  font-size: 12px;
+  color: var(--text);
+}
+
+.panel-habit-title.done {
+  text-decoration: line-through;
+  color: var(--text-dim);
+}
+
+.panel-habit-streak {
+  font-size: 10px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+/* ── HABITS VIEW ──────────────────────────────────────── */
+.habits-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.habits-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 28px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.habits-title {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.habits-add-btn {
+  font-size: 12px;
+  font-family: inherit;
+  padding: 6px 14px;
+  border-radius: 4px;
+  border: 1px solid var(--amber-dim);
+  background: none;
+  color: var(--amber);
+  cursor: pointer;
+}
+
+.habits-add-btn:hover { background: var(--amber-dim); }
+
+.habits-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 20px;
+}
+
+.habits-loading {
+  font-size: 12px;
+  color: var(--text-dim);
+  padding: 20px;
+}
+
+.habits-empty {
+  font-size: 13px;
+  color: var(--text-dim);
+  padding: 40px 20px;
+  text-align: center;
+  line-height: 2;
+}
+
+.habits-section-title {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── HABIT ROW ────────────────────────────────────────── */
+.habit-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg-mid);
+  border-radius: 6px;
+  margin-bottom: 4px;
+  border: 1px solid var(--border);
+}
+
+.habit-row:hover { border-color: #3a3428; }
+.habit-row--done { opacity: 0.6; }
+
+.habit-check {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.habit-check:hover:not(.done):not(.disabled) {
+  border-color: var(--amber);
+  background: var(--amber-dim);
+}
+
+.habit-check.done {
+  background: var(--amber-dim);
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.habit-check.disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.habit-info { flex: 1; min-width: 0; }
+
+.habit-name {
+  font-size: 13px;
+  color: var(--text);
+  margin-bottom: 3px;
+}
+
+.habit-name.done {
+  text-decoration: line-through !important;
+  color: var(--text-dim);
+}
+
+.habit-meta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.habit-freq {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.habit-streak {
+  font-size: 10px;
+  color: var(--amber);
+}
+
+.habit-reminder {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.habit-edit-btn {
+  font-size: 16px;
+  color: var(--text-dim);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 4px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.habit-edit-btn:hover { color: var(--text); }
+
+/* ── HABIT MODAL ──────────────────────────────────────── */
+.habit-day-picker {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.habit-day-btn {
+  font-size: 11px;
+  font-family: inherit;
+  padding: 5px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.habit-day-btn.active {
+  background: var(--amber-dim);
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.habit-presets {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.habit-preset-btn {
+  font-size: 11px;
+  font-family: inherit;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.habit-preset-btn:hover { color: var(--text); border-color: #3a3428; }
+/* ── WORKSPACE COLOUR PICKER ──────────────────────────── */
+.ws-colour-picker {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ws-colour-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.ws-colour-swatch:hover {
+  transform: scale(1.15);
+}
+
+.ws-colour-swatch.active {
+  border-color: white;
+  transform: scale(1.15);
+}
+/* ── COMPLETED HABIT ON CALENDAR ──────────────────────── */
+.cal-item--done {
+  text-decoration: line-through !important;
+  opacity: 0.5;
+}
+
+/* ── DAY VIEW TIMELINE ────────────────────────────────── */
+.cal-day-timeline {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.cal-day-allday {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.cal-day-allday-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  width: 44px;
+  flex-shrink: 0;
+  padding-top: 3px;
+}
+
+.cal-day-allday-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1;
+}
+
+.cal-day-allday-item {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  border-left: 2px solid transparent;
+  background: var(--bg-mid);
+}
+
+.cal-day-hours {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.cal-hour-row {
+  display: flex;
+  align-items: flex-start;
+  min-height: 48px;
+  border-bottom: 1px solid #1a1814;
+  position: relative;
+}
+
+.cal-hour-row--now {
+  background: #1a1710;
+}
+
+.cal-hour-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  width: 44px;
+  padding: 6px 8px 0;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.cal-hour-content {
+  flex: 1;
+  padding: 4px 8px;
+  position: relative;
+  min-height: 48px;
+}
+
+.cal-now-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--amber);
+  opacity: 0.6;
+}
+
+.cal-timed-item {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  border-left: 2px solid transparent;
+  background: var(--bg-mid);
+  margin-bottom: 3px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.cal-timed-time {
+  font-size: 10px;
+  opacity: 0.7;
+  flex-shrink: 0;
+}

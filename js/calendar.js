@@ -3,12 +3,10 @@ import { supabase } from './supabase.js'
 let currentDate = new Date()
 let currentView = 'month'
 
-// ── INIT CALENDAR ─────────────────────────────────────────
 export function initCalendar() {
   renderCalendar()
 }
 
-// ── MAIN RENDER ───────────────────────────────────────────
 async function renderCalendar() {
   const main = document.getElementById('main-content')
 
@@ -37,53 +35,62 @@ async function renderCalendar() {
   await loadCalendarData()
 }
 
-// ── LOAD DATA ─────────────────────────────────────────────
 async function loadCalendarData() {
   const { start, end } = getDateRange()
   const startStr = start.toISOString().split('T')[0]
   const endStr   = end.toISOString().split('T')[0]
 
-  // Fetch tasks — join folder → workspace to always get colour
-  const { data: tasks } = await supabase
-    .from('tasks')
-    .select('*, folders(workspace_id, workspaces(colour, name))')
-    .not('due_date', 'is', null)
-    .gte('due_date', startStr)
-    .lte('due_date', endStr)
-    .eq('done', false)
+  const [tasksRes, eventsRes, holidaysRes, workspacesRes, habitsRes, completionsRes] = await Promise.all([
+    supabase
+      .from('tasks')
+      .select('*, folders(workspace_id, workspaces(colour, name))')
+      .not('due_date', 'is', null)
+      .gte('due_date', startStr)
+      .lte('due_date', endStr)
+      .eq('done', false),
+    supabase
+      .from('events')
+      .select('*, workspaces(colour)')
+      .gte('start_time', start.toISOString())
+      .lte('start_time', end.toISOString()),
+    supabase
+      .from('public_holidays')
+      .select('*')
+      .gte('date', startStr)
+      .lte('date', endStr),
+    supabase
+      .from('workspaces')
+      .select('name, colour')
+      .order('position'),
+    supabase
+      .from('habits')
+      .select('*')
+      .order('position'),
+    // Fetch habit completions for the entire range
+    supabase
+      .from('habit_completions')
+      .select('habit_id, completed_date')
+      .gte('completed_date', startStr)
+      .lte('completed_date', endStr)
+  ])
 
-  // Fetch events
-  const { data: events } = await supabase
-    .from('events')
-    .select('*, workspaces(colour)')
-    .gte('start_time', start.toISOString())
-    .lte('start_time', end.toISOString())
+  renderLegend(workspacesRes.data || [])
 
-  // Fetch public holidays
-  const { data: holidays } = await supabase
-    .from('public_holidays')
-    .select('*')
-    .gte('date', startStr)
-    .lte('date', endStr)
+  const habits     = habitsRes.data || []
+  const completions = completionsRes.data || []
 
-  // Fetch workspaces for legend
-  const { data: workspaces } = await supabase
-    .from('workspaces')
-    .select('name, colour')
-    .order('position')
-
-  renderLegend(workspaces || [])
+  // Build a set of "habitId|date" for quick lookup
+  const completedSet = new Set(completions.map(c => `${c.habit_id}|${c.completed_date}`))
 
   if (currentView === 'month') {
-    renderMonthView(tasks || [], events || [], holidays || [])
+    renderMonthView(tasksRes.data || [], eventsRes.data || [], holidaysRes.data || [], habits, completedSet)
   } else if (currentView === 'week') {
-    renderWeekView(tasks || [], events || [], holidays || [])
+    renderWeekView(tasksRes.data || [], eventsRes.data || [], holidaysRes.data || [], habits, completedSet)
   } else {
-    renderDayView(tasks || [], events || [], holidays || [])
+    renderDayView(tasksRes.data || [], eventsRes.data || [], holidaysRes.data || [], habits, completedSet)
   }
 }
 
-// ── DATE RANGE ────────────────────────────────────────────
 function getDateRange() {
   if (currentView === 'month') {
     const start = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
@@ -102,7 +109,6 @@ function getDateRange() {
   }
 }
 
-// ── LEGEND ────────────────────────────────────────────────
 function renderLegend(workspaces) {
   const legend = document.getElementById('cal-legend')
   if (!legend) return
@@ -114,14 +120,17 @@ function renderLegend(workspaces) {
     </div>
   `).join('') + `
     <div class="cal-legend-item">
+      <span class="cal-legend-dot" style="background:#7a6e58;"></span>
+      <span>Habit</span>
+    </div>
+    <div class="cal-legend-item">
       <span class="cal-legend-dot cal-legend-dot--holiday"></span>
       <span>Holiday</span>
     </div>
   `
 }
 
-// ── MONTH VIEW ────────────────────────────────────────────
-function renderMonthView(tasks, events, holidays) {
+function renderMonthView(tasks, events, holidays, habits, completedSet) {
   const body  = document.getElementById('calendar-body')
   const year  = currentDate.getFullYear()
   const month = currentDate.getMonth()
@@ -129,11 +138,11 @@ function renderMonthView(tasks, events, holidays) {
   document.getElementById('cal-title').textContent =
     currentDate.toLocaleDateString('no-NO', { month: 'long', year: 'numeric' })
 
-  const dayMap   = buildDayMap(tasks, events, holidays)
-  const firstDay = new Date(year, month, 1)
-  const startPad = (firstDay.getDay() + 6) % 7
+  const dayMap      = buildDayMap(tasks, events, holidays, habits, completedSet)
+  const firstDay    = new Date(year, month, 1)
+  const startPad    = (firstDay.getDay() + 6) % 7
   const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const today    = new Date().toISOString().split('T')[0]
+  const today       = new Date().toISOString().split('T')[0]
 
   function getWeekNumber(date) {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
@@ -166,9 +175,9 @@ function renderMonthView(tasks, events, holidays) {
     if (i < startPad || dayCount > daysInMonth) {
       html += `<div class="cal-cell cal-cell--empty"></div>`
     } else {
-      const dateStr  = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayCount).padStart(2, '0')}`
-      const isToday  = dateStr === today
-      const items    = dayMap[dateStr] || []
+      const dateStr   = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayCount).padStart(2, '0')}`
+      const isToday   = dateStr === today
+      const items     = dayMap[dateStr] || []
       const isHoliday = items.some(i => i.type === 'holiday')
 
       html += `
@@ -189,12 +198,11 @@ function renderMonthView(tasks, events, holidays) {
   body.innerHTML = html
 }
 
-// ── WEEK VIEW ─────────────────────────────────────────────
-function renderWeekView(tasks, events, holidays) {
-  const body  = document.getElementById('calendar-body')
+function renderWeekView(tasks, events, holidays, habits, completedSet) {
+  const body     = document.getElementById('calendar-body')
   const { start } = getDateRange()
-  const today = new Date().toISOString().split('T')[0]
-  const dayMap = buildDayMap(tasks, events, holidays)
+  const today    = new Date().toISOString().split('T')[0]
+  const dayMap   = buildDayMap(tasks, events, holidays, habits, completedSet)
   const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
   const days = []
@@ -231,33 +239,79 @@ function renderWeekView(tasks, events, holidays) {
   body.innerHTML = html
 }
 
-// ── DAY VIEW ──────────────────────────────────────────────
-function renderDayView(tasks, events, holidays) {
+// ── DAY VIEW — 24 HOUR TIMELINE ───────────────────────────
+function renderDayView(tasks, events, holidays, habits, completedSet) {
   const body    = document.getElementById('calendar-body')
   const dateStr = currentDate.toISOString().split('T')[0]
-  const items   = (buildDayMap(tasks, events, holidays))[dateStr] || []
+  const allItems = (buildDayMap(tasks, events, holidays, habits, completedSet))[dateStr] || []
 
   document.getElementById('cal-title').textContent =
     currentDate.toLocaleDateString('no-NO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
-  body.innerHTML = `
-    <div class="cal-day-view">
-      ${items.length === 0
-        ? '<div class="cal-day-empty">Nothing scheduled for this day</div>'
-        : items.map(item => `
-            <div class="cal-day-item" style="border-left-color:${item.colour || '#c9a96e'}">
-              <div class="cal-day-item-title">${item.title}</div>
-              ${item.time ? `<div class="cal-day-item-time">${item.time}</div>` : ''}
-              ${item.workspace ? `<div class="cal-day-item-ws">${item.workspace}</div>` : ''}
+  // All-day items (habits, holidays, tasks without time)
+  const allDayItems = allItems.filter(i => !i.time)
+  // Timed items (events with a specific time)
+  const timedItems  = allItems.filter(i => i.time)
+
+  // Build 24 hour slots
+  const hours = Array.from({ length: 24 }, (_, i) => i)
+
+  let html = '<div class="cal-day-timeline">'
+
+  // All-day section
+  if (allDayItems.length > 0) {
+    html += `
+      <div class="cal-day-allday">
+        <div class="cal-day-allday-label">All day</div>
+        <div class="cal-day-allday-items">
+          ${allDayItems.map(item => `
+            <div class="cal-day-allday-item ${item.done ? 'cal-item--done' : ''}"
+                 style="border-left-color:${item.colour}; color:${item.colour}">
+              ${item.title}
             </div>
-          `).join('')
-      }
-    </div>
-  `
+          `).join('')}
+        </div>
+      </div>
+    `
+  }
+
+  // Hour rows
+  html += '<div class="cal-day-hours">'
+
+  hours.forEach(h => {
+    const timeStr  = `${String(h).padStart(2, '0')}:00`
+    const nextTime = `${String(h + 1).padStart(2, '0')}:00`
+    const slotItems = timedItems.filter(i => i.time >= timeStr && i.time < nextTime)
+    const isNow = new Date().getHours() === h && dateStr === new Date().toISOString().split('T')[0]
+
+    html += `
+      <div class="cal-hour-row ${isNow ? 'cal-hour-row--now' : ''}">
+        <div class="cal-hour-label">${timeStr}</div>
+        <div class="cal-hour-content">
+          ${isNow ? '<div class="cal-now-line"></div>' : ''}
+          ${slotItems.map(item => `
+            <div class="cal-timed-item" style="border-left-color:${item.colour}; color:${item.colour}">
+              <span class="cal-timed-time">${item.time}</span>
+              ${item.title}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `
+  })
+
+  html += '</div></div>'
+  body.innerHTML = html
+
+  // Scroll to current hour
+  const nowRow = body.querySelector('.cal-hour-row--now')
+  if (nowRow) {
+    setTimeout(() => nowRow.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100)
+  }
 }
 
 // ── BUILD DAY MAP ─────────────────────────────────────────
-function buildDayMap(tasks, events, holidays) {
+function buildDayMap(tasks, events, holidays, habits, completedSet) {
   const map = {}
 
   const add = (dateStr, item) => {
@@ -268,53 +322,72 @@ function buildDayMap(tasks, events, holidays) {
   tasks.forEach(t => {
     if (!t.due_date) return
     const overdue = new Date(t.due_date) < new Date(new Date().toDateString())
-    // Get colour via folder → workspace chain, fall back to amber
-    const colour = overdue
+    const colour  = overdue
       ? '#b05050'
       : (t.folders?.workspaces?.colour || t.workspaces?.colour || '#c9a96e')
-
-    add(t.due_date, {
-      type: 'task',
-      title: t.title,
-      colour,
-      overdue
-    })
+    add(t.due_date, { type: 'task', title: t.title, colour, overdue })
   })
 
   events.forEach(e => {
     const dateStr = e.start_time.split('T')[0]
     add(dateStr, {
-      type: 'event',
-      title: e.title,
+      type:   'event',
+      title:  e.title,
       colour: e.workspaces?.colour || '#a85888',
-      time: e.start_time
-        ? new Date(e.start_time).toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit' })
-        : null
+      time:   new Date(e.start_time).toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit' })
     })
   })
 
   holidays.forEach(h => {
-    add(h.date, {
-      type: 'holiday',
-      title: h.name,
-      colour: '#4a4538'
-    })
+    add(h.date, { type: 'holiday', title: h.name, colour: '#4a4538' })
+  })
+
+  const { start, end } = getDateRange()
+  const dayOfWeekMap   = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+
+  habits.forEach(h => {
+    const d = new Date(start)
+    while (d <= end) {
+      const dow     = dayOfWeekMap[d.getDay()]
+      const dateStr = d.toISOString().split('T')[0]
+      let scheduled = false
+
+      if (h.frequency === 'daily') {
+        scheduled = true
+      } else if (h.frequency === 'weekdays') {
+        scheduled = !['sat', 'sun'].includes(dow)
+      } else if (h.frequency === 'weekends') {
+        scheduled = ['sat', 'sun'].includes(dow)
+      } else {
+        scheduled = h.frequency.split(',').includes(dow)
+      }
+
+      if (scheduled) {
+        const done = completedSet.has(`${h.id}|${dateStr}`)
+        add(dateStr, {
+          type:   'habit',
+          title:  h.name,
+          colour: '#7a6e58',
+          done
+        })
+      }
+
+      d.setDate(d.getDate() + 1)
+    }
   })
 
   return map
 }
 
-// ── RENDER ITEM ───────────────────────────────────────────
 function renderCalItem(item) {
   return `
-    <div class="cal-item cal-item--${item.type} ${item.overdue ? 'cal-item--overdue' : ''}"
+    <div class="cal-item cal-item--${item.type} ${item.overdue ? 'cal-item--overdue' : ''} ${item.done ? 'cal-item--done' : ''}"
          style="border-left-color:${item.colour}; color:${item.colour}">
       ${item.title}
     </div>
   `
 }
 
-// ── NAVIGATION ────────────────────────────────────────────
 window.calPrev = function() {
   if (currentView === 'month') {
     currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
