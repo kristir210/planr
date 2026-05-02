@@ -22,6 +22,8 @@ async function checkPin() {
   const { data, error: err } = await supabase
     .from('settings')
     .select('pin_hash')
+    .order('created_at')
+    .limit(1)
     .single()
 
   if (err) {

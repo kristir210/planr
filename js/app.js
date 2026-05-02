@@ -2,9 +2,16 @@ import { initPanel } from './panel.js'
 import { loadWorkspaces } from './workspaces.js'
 import { initCalendar } from './calendar.js'
 import { initHabits } from './habits.js'
+import { initSettings } from './settings.js'
 
 initPanel()
 loadWorkspaces()
+initSettings()
+
+// ── DEFAULT VIEW: calendar week ───────────────────────────
+document.querySelector('.sidebar-row[data-view="calendar"]')?.classList.add('active')
+initCalendar()
+setTimeout(() => { if (window.setCalView) window.setCalView('week') }, 0)
 
 // ── SIDEBAR VIEW NAVIGATION ───────────────────────────────
 document.querySelectorAll('.sidebar-row[data-view]').forEach(row => {

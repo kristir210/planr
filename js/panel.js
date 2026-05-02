@@ -33,6 +33,10 @@ async function loadPanelContent() {
   panelContent.innerHTML = `
     <div class="panel-date">${dayName}</div>
     <div class="panel-section">
+      <div class="panel-section-title">Events today</div>
+      <div id="panel-events"><div class="panel-loading">Loading...</div></div>
+    </div>
+    <div class="panel-section">
       <div class="panel-section-title">Tasks due today</div>
       <div id="panel-tasks"><div class="panel-loading">Loading...</div></div>
     </div>
@@ -42,10 +46,50 @@ async function loadPanelContent() {
     </div>
   `
 
+  loadPanelEvents(today)
   loadPanelTasks(today)
   loadPanelHabits(today)
 }
 
+// ── TODAY'S EVENTS ────────────────────────────────────────
+async function loadPanelEvents(today) {
+  const todayStart = today + 'T00:00:00'
+  const todayEnd   = today + 'T23:59:59'
+
+  const { data: events } = await supabase
+    .from('events')
+    .select('*, folders(workspaces(name, colour)), workspaces(name, colour)')
+    .or(`and(start_time.lte.${todayEnd},end_time.gte.${todayStart}),and(start_time.gte.${todayStart},start_time.lte.${todayEnd})`)
+    .order('start_time')
+
+  const el = document.getElementById('panel-events')
+  if (!el) return
+
+  if (!events || events.length === 0) {
+    el.innerHTML = '<div class="panel-empty">No events today</div>'
+    return
+  }
+
+  el.innerHTML = events.map(e => {
+    const colour = e.folders?.workspaces?.colour || e.workspaces?.colour || '#a85888'
+    const ws     = e.folders?.workspaces?.name   || e.workspaces?.name   || ''
+    const time   = e.all_day
+      ? 'All day'
+      : new Date(e.start_time).toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit' })
+
+    return `
+      <div class="panel-task-item" style="border-left-color:${colour}40; cursor:pointer;"
+           onclick="openEventEditModal('${e.id}')">
+        <div class="panel-task-body">
+          <div class="panel-task-title">${e.title}</div>
+          <div class="panel-task-ws">${time}${ws ? ' · ' + ws : ''}</div>
+        </div>
+      </div>
+    `
+  }).join('')
+}
+
+// ── TODAY'S TASKS ─────────────────────────────────────────
 async function loadPanelTasks(today) {
   const { data: tasks } = await supabase
     .from('tasks')
@@ -105,6 +149,7 @@ window.panelToggleTask = async function(taskId, checkEl, colour) {
   }
 }
 
+// ── TODAY'S HABITS ────────────────────────────────────────
 async function loadPanelHabits(today) {
   const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase()
 
@@ -185,7 +230,6 @@ window.panelToggleHabit = async function(habitId, today) {
     item?.classList.add('done')
   }
 
-  // If habits view is currently open, refresh it
   if (document.querySelector('.habits-view')) {
     if (window.initHabits) window.initHabits()
   }

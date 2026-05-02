@@ -1159,7 +1159,7 @@ html, body {
 /* ── MONTH GRID ───────────────────────────────────────── */
 .cal-month-grid {
   display: grid;
-  grid-template-columns: 28px repeat(7, 1fr);
+  grid-template-columns: auto repeat(7, 1fr);
   gap: 2px;
   height: 100%;
 }
@@ -1825,4 +1825,385 @@ html, body {
   font-size: 10px;
   opacity: 0.7;
   flex-shrink: 0;
+}
+/* ── MULTI-DAY EVENT BARS ─────────────────────────────── */
+.cal-month-wrapper {
+  position: relative;
+  height: 100%;
+  overflow: auto;
+}
+
+.cal-multiday-bar {
+  position: absolute;
+  height: 16px;
+  line-height: 16px;
+  font-size: 9px;
+  padding: 0 6px;
+  border-radius: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  z-index: 2;
+}
+/* ── CALENDAR ADD POPUP ───────────────────────────────── */
+.cal-add-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+}
+
+.cal-add-tab {
+  font-size: 12px;
+  font-family: inherit;
+  padding: 5px 16px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.cal-add-tab.active {
+  background: var(--amber-dim);
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+#cal-task-form,
+#cal-event-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cal-day-add-btn {
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 6px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.cal-day-add-btn:hover {
+  color: var(--text);
+  background: var(--bg-mid);
+}
+/* ── DAY VIEW BANNER ITEMS ────────────────────────────── */
+.cal-day-banner-item {
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 3px;
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* ── EVENTS VIEW ──────────────────────────────────────── */
+.events-empty {
+  font-size: 13px;
+  color: var(--text-dim);
+  padding: 40px 20px;
+  text-align: center;
+  line-height: 2;
+}
+/* ── CONTEXT MENU DIVIDER ─────────────────────────────── */
+.context-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+/* ── SETTINGS PANEL ───────────────────────────────────── */
+.settings-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.settings-drawer {
+  position: relative;
+  z-index: 201;
+  width: 420px;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: var(--bg-mid);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  transform: scale(0.95);
+  opacity: 0;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.settings-drawer.open {
+  transform: scale(1);
+  opacity: 1;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings-section-title {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-row-label { flex: 1; }
+
+.settings-row-name {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.settings-row-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.settings-btn {
+  font-size: 12px;
+  font-family: inherit;
+  padding: 6px 14px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.settings-btn:hover {
+  border-color: var(--amber-dim);
+  color: var(--amber);
+}
+
+.settings-import-form {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-import-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* ── ICS PREVIEW ──────────────────────────────────────── */
+.ics-preview {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px 12px;
+  font-size: 12px;
+}
+
+.ics-preview-count {
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.ics-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ics-preview-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+}
+
+.ics-preview-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  color: var(--text);
+}
+
+.ics-preview-date {
+  flex-shrink: 0;
+  color: var(--text-dim);
+}
+
+.ics-preview-more {
+  color: var(--text-dim);
+  font-size: 11px;
+  margin-top: 4px;
+  font-style: italic;
+}
+/* ── IMPORT MANAGEMENT ────────────────────────────────── */
+.settings-import-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-import-row:last-of-type {
+  border-bottom: none;
+}
+
+.settings-btn--danger {
+  border-color: #6b3030;
+  color: #c05050;
+}
+
+.settings-btn--danger:hover {
+  background: #3a1a1a;
+  border-color: #c05050;
+}
+
+.settings-empty {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-style: italic;
+  padding: 4px 0;
+}
+/* ── CALENDAR ITEM TIME LABEL ─────────────────────────── */
+.cal-item-time {
+  font-size: 9px;
+  opacity: 0.75;
+  margin-right: 4px;
+  font-weight: 500;
+}
+/* ── DAY VIEW TIMELINE BLOCKS ─────────────────────────── */
+.cal-day-hours {
+  position: relative;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.cal-hour-row-block {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: flex-start;
+  box-sizing: border-box;
+}
+
+.cal-hour-label {
+  width: 44px;
+  font-size: 10px;
+  color: var(--text-dim);
+  padding: 3px 8px 0 0;
+  text-align: right;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.cal-hour-line {
+  flex: 1;
+  border-top: 1px solid #1e1c17;
+  margin-top: 6px;
+}
+
+.cal-day-block {
+  position: absolute;
+  border-radius: 4px;
+  padding: 4px 8px;
+  overflow: hidden;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: opacity 0.15s;
+}
+
+.cal-day-block:hover {
+  opacity: 0.85;
+}
+
+.cal-day-block-title {
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cal-day-block-time {
+  font-size: 10px;
+  opacity: 0.7;
+  margin-top: 2px;
+}
+
+.cal-now-indicator {
+  position: absolute;
+  left: 44px;
+  right: 0;
+  height: 2px;
+  background: var(--amber);
+  opacity: 0.8;
+  z-index: 3;
+}
+
+.cal-now-indicator::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--amber);
+}
+
+/* ── CAL ITEM TIME LABEL ──────────────────────────────── */
+.cal-item-time {
+  font-size: 9px;
+  opacity: 0.75;
+  margin-right: 4px;
+  font-weight: 500;
 }
