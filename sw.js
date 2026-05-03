@@ -1,4 +1,4 @@
-const CACHE_NAME = 'planr-v1'
+const CACHE_NAME = 'planr-v2'
 
 const STATIC_ASSETS = [
   '/',

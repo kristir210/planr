@@ -1,8 +1,8 @@
 /* ── BOTTOM NAV hidden on desktop ─────────────────────── */
 .bottom-nav { display: none; }
 
-/* ── FOLD / TABLET (600–899px) — same as phone, no sidebar ── */
-@media (max-width: 899px) {
+/* ── FOLD / TABLET (600–1024px) — same as phone, no sidebar ── */
+@media (max-width: 1024px) {
 
   .app {
     grid-template-columns: 1fr;

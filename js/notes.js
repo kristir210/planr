@@ -127,7 +127,10 @@ window.scheduleNoteSave = function() {
   if (indicator) indicator.textContent = 'Saving...'
 
   saveTimeout = setTimeout(async () => {
-    if (!currentNoteId) return
+    const noteId = currentNoteId || window.currentNoteId
+    if (!noteId) return
+    // keep local in sync
+    currentNoteId = noteId
 
     const title = document.getElementById('note-title-input')?.value.trim() || 'Untitled'
     const body  = document.getElementById('note-body')?.innerHTML || ''
@@ -135,17 +138,11 @@ window.scheduleNoteSave = function() {
     await supabase
       .from('notes')
       .update({ title, body, updated_at: new Date().toISOString() })
-      .eq('id', currentNoteId)
+      .eq('id', noteId)
 
-    const item = document.getElementById('ni-' + currentNoteId)
-    if (item) {
-      const preview = body.replace(/<[^>]*>/g, '').substring(0, 60) + '...'
-      item.querySelector('.note-item-title').textContent = title
-      item.querySelector('.note-item-preview').textContent = preview
-      item.querySelector('.note-item-date').textContent = new Date().toLocaleDateString('no-NO', {
-        day: 'numeric', month: 'short'
-      })
-    }
+    // Update sidebar note item title if visible
+    const sidebarItem = document.getElementById('sni-' + noteId)
+    if (sidebarItem) sidebarItem.textContent = title
 
     if (indicator) {
       indicator.textContent = 'Saved'

@@ -38,7 +38,7 @@ document.querySelectorAll('.topbar-btn[data-view]').forEach(btn => {
 // ── MOBILE BOTTOM NAV ─────────────────────────────────────
 window.mobileNav = function (view, btn) {
   // Only run on mobile
-  if (window.innerWidth > 899) return
+  if (window.innerWidth > 1024) return
 
   // Update active state on bottom nav buttons
   document.querySelectorAll('.bottom-nav-btn').forEach(b => b.classList.remove('active'))
