@@ -5,15 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Planr</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/mobile.css">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0e0c09">
-  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Planr">
 </head>
 <body class="app-page">
 
-  <!-- PIN GUARD — redirects back to PIN if not authenticated -->
   <script>
     if (sessionStorage.getItem('planr_auth') !== 'true') {
       window.location.href = 'pin.html'
@@ -38,15 +38,12 @@
 
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
-
       <div class="sidebar-views">
         <div class="sidebar-label">Views</div>
         <div class="sidebar-row active" data-view="calendar">◫ Calendar</div>
         <div class="sidebar-row" data-view="habits">◉ Habits</div>
       </div>
-
       <div class="sidebar-divider"></div>
-
       <div class="sidebar-workspaces">
         <div class="sidebar-label">Workspaces</div>
         <div id="workspace-list">
@@ -54,11 +51,9 @@
         </div>
         <div class="sidebar-new-workspace">+ New workspace</div>
       </div>
-
       <div class="sidebar-bottom">
         <div class="sidebar-row" id="settings-btn">⚙ Settings</div>
       </div>
-
     </aside>
 
     <!-- MAIN CONTENT AREA -->
@@ -73,16 +68,70 @@
       </div>
     </aside>
 
-    <!-- PANEL TAB (visible when panel is closed) -->
+    <!-- PANEL TAB -->
     <div class="panel-tab" id="panel-tab">
       <span>Today</span>
     </div>
+
+    <!-- BOTTOM NAV (mobile only, hidden on desktop via CSS) -->
+    <nav class="bottom-nav" id="bottom-nav">
+      <button class="bottom-nav-btn active" onclick="mobileNav('calendar', this)">
+        <span class="nav-icon">◫</span>
+        <span>Calendar</span>
+      </button>
+      <button class="bottom-nav-btn" onclick="mobileNav('habits', this)">
+        <span class="nav-icon">◉</span>
+        <span>Habits</span>
+      </button>
+      <button class="bottom-nav-btn" onclick="mobileNav('today', this)">
+        <span class="nav-icon">☀</span>
+        <span>Today</span>
+      </button>
+      <button class="bottom-nav-btn" onclick="mobileNav('workspaces', this)">
+        <span class="nav-icon">⊞</span>
+        <span>Spaces</span>
+      </button>
+      <button class="bottom-nav-btn" onclick="mobileNav('settings', this)">
+        <span class="nav-icon">⚙</span>
+        <span>Settings</span>
+      </button>
+    </nav>
 
   </div>
 
   <script type="module" src="js/app.js"></script>
 
-  <!-- Register service worker -->
+  <script>
+    window.mobileNav = function(view, btn) {
+      document.querySelectorAll('.bottom-nav-btn').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+
+      if (view === 'calendar') {
+        document.querySelector('[data-view="calendar"]')?.click()
+      } else if (view === 'habits') {
+        document.querySelector('[data-view="habits"]')?.click()
+      } else if (view === 'today') {
+        const panel = document.getElementById('right-panel')
+        const isHidden = panel.classList.contains('hide')
+        panel.classList.toggle('hide')
+        if (isHidden) {
+          panel.style.cssText = 'display:flex; position:fixed; inset:0; top:46px; bottom:56px; width:100%; z-index:50; background:var(--bg-top);'
+          if (window.loadPanelContent) window.loadPanelContent()
+        } else {
+          panel.style.cssText = ''
+        }
+      } else if (view === 'workspaces') {
+        const sidebar = document.getElementById('sidebar')
+        const isOpen = sidebar.classList.contains('mobile-open')
+        sidebar.classList.toggle('mobile-open')
+        sidebar.style.cssText = isOpen ? '' :
+          'display:flex; position:fixed; inset:0; top:46px; bottom:56px; width:260px; z-index:50; background:var(--bg-top); border-right:1px solid var(--border);'
+      } else if (view === 'settings') {
+        document.getElementById('settings-btn')?.click()
+      }
+    }
+  </script>
+
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

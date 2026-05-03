@@ -2207,3 +2207,44 @@ html, body {
   margin-right: 4px;
   font-weight: 500;
 }
+.bottom-nav { display: none; }
+/* ── SIDEBAR NOTE ITEMS ───────────────────────────────────── */
+.sidebar-note-item {
+  font-size: 12px;
+  color: #6a6050;
+  padding: 5px 12px 5px 28px;
+  cursor: pointer;
+  border-radius: 4px;
+  margin: 1px 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sidebar-note-item::before {
+  content: '📄';
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.sidebar-note-item:hover {
+  background: #161410;
+  color: #7a7060;
+}
+
+.sidebar-note-item.active {
+  background: #1d1a13;
+  color: var(--amber);
+}
+
+/* ── NOTES EDITOR STANDALONE (full main content) ─────────── */
+.notes-editor-standalone {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+}
