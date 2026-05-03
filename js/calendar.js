@@ -381,7 +381,7 @@ function renderMultiDayBars(events, gridDates) {
   })
 }
 
-// ── WEEK VIEW ─────────────────────────────────────────────
+// ── WEEK VIEW (horizontal scroll, auto-scroll to today) ───
 function renderWeekView(tasks, events, holidays, habits, completedSet) {
   const body     = document.getElementById('calendar-body')
   const { start } = getDateRange()
@@ -432,15 +432,22 @@ function renderWeekView(tasks, events, holidays, habits, completedSet) {
   document.getElementById('cal-title').textContent =
     `${days[0].toLocaleDateString('no-NO', { day: 'numeric', month: 'short' })} — ${days[6].toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })}`
 
-  let html = '<div class="cal-week-grid">'
+  // Scrollable wrapper with fixed column widths
+  let html = '<div class="cal-week-scroll">'
+  html += '<div class="cal-week-grid">'
+
+  let todayIndex = -1
 
   days.forEach((day, i) => {
     const dateStr = `${day.getFullYear()}-${pad(day.getMonth()+1)}-${pad(day.getDate())}`
     const isToday = dateStr === today
-    const items   = dayMap[dateStr] || []
+    if (isToday) todayIndex = i
+
+    const items = dayMap[dateStr] || []
 
     html += `
       <div class="cal-week-col ${isToday ? 'cal-week-col--today' : ''}"
+           id="cal-week-col-${i}"
            onclick="openCalAddPopup('${dateStr}')">
         <div class="cal-week-col-header">
           <span class="cal-week-day-name">${dayNames[i]}</span>
@@ -453,8 +460,23 @@ function renderWeekView(tasks, events, holidays, habits, completedSet) {
     `
   })
 
-  html += '</div>'
+  html += '</div></div>'
   body.innerHTML = html
+
+  // Auto-scroll to today (or as close as possible)
+  if (todayIndex >= 0) {
+    setTimeout(() => {
+      const scrollContainer = body.querySelector('.cal-week-scroll')
+      const todayCol = document.getElementById('cal-week-col-' + todayIndex)
+      if (scrollContainer && todayCol) {
+        // Center today's column in the view
+        const colLeft = todayCol.offsetLeft
+        const colWidth = todayCol.offsetWidth
+        const containerWidth = scrollContainer.offsetWidth
+        scrollContainer.scrollLeft = colLeft - (containerWidth / 2) + (colWidth / 2)
+      }
+    }, 50)
+  }
 }
 
 // ── DAY VIEW — POSITIONED BLOCKS ──────────────────────────

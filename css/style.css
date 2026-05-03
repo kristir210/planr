@@ -2248,3 +2248,36 @@ html, body {
   overflow: hidden;
   background: var(--bg);
 }
+/* ── WEEK VIEW HORIZONTAL SCROLL ─────────────────────────── */
+
+/* Scrollable container */
+.cal-week-scroll {
+  width: 100%;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Grid — min width ensures columns don't get squashed */
+.cal-week-scroll .cal-week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(120px, 1fr));
+  gap: 4px;
+  min-width: 840px; /* 7 × 120px */
+  height: 100%;
+}
+.move-folder-option {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.move-folder-option:hover {
+  background: var(--bg-mid);
+}

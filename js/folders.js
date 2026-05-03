@@ -286,6 +286,7 @@ window.showFolderMenu = function(e, folderId, workspaceId, colour, folderType, p
 
   const notesExtras = isNotes ? `
     <div class="context-menu-item" onclick="ctxAddFolder('${folderId}', '${workspaceId}', '${colour}')">+ Add folder</div>
+    <div class="context-menu-item" onclick="openMoveFolderModal('${folderId}', '${workspaceId}', '${colour}')">Move to...</div>
     <div class="context-menu-divider"></div>
   ` : ''
 
@@ -379,6 +380,66 @@ window.deleteFolder = async function(folderId, workspaceId, colour) {
   }
 }
 
+window.openMoveFolderModal = async function(folderId, workspaceId, colour) {
+  closeContextMenu()
+  document.getElementById('move-folder-modal')?.remove()
+
+  // Load all notes folders in this workspace except the folder itself
+  const { data: folders } = await supabase
+    .from('folders')
+    .select('id, name, parent_id')
+    .eq('workspace_id', workspaceId)
+    .eq('type', 'notes')
+    .neq('id', folderId)
+    .order('name')
+
+  // Also offer "top level" as a destination
+  const options = folders || []
+
+  const modal = document.createElement('div')
+  modal.id = 'move-folder-modal'
+  modal.className = 'popup'
+  modal.innerHTML = `
+    <div class="popup-box">
+      <div class="popup-header">
+        <div class="popup-title">Move to...</div>
+        <button class="popup-close" onclick="document.getElementById('move-folder-modal')?.remove()">✕</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;max-height:260px;overflow-y:auto;margin-top:8px;">
+        <div class="move-folder-option" onclick="moveFolderTo('${folderId}', null, '${workspaceId}', '${colour}')">
+          <span style="opacity:.5">📂</span> Top level
+        </div>
+        ${options.map(f => `
+          <div class="move-folder-option" onclick="moveFolderTo('${folderId}', '${f.id}', '${workspaceId}', '${colour}')">
+            📁 ${f.name}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `
+
+  document.body.appendChild(modal)
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove() })
+}
+
+window.moveFolderTo = async function(folderId, newParentId, workspaceId, colour) {
+  document.getElementById('move-folder-modal')?.remove()
+
+  await supabase
+    .from('folders')
+    .update({ parent_id: newParentId || null })
+    .eq('id', folderId)
+
+  // Reload the whole workspace sidebar to reflect the move
+  const body = document.getElementById('wb-' + workspaceId)
+  if (body) {
+    body.innerHTML = ''
+    await loadFolders(workspaceId, colour)
+    // Re-expand the workspace
+    const wsBody = document.getElementById('wb-' + workspaceId)
+    if (wsBody) wsBody.style.display = 'block'
+  }
+}
 window.renameNote = async function(noteId) {
   document.getElementById('context-menu')?.remove()
   const { data: note } = await supabase.from('notes').select('title').eq('id', noteId).single()
