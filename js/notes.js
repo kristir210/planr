@@ -1,6 +1,5 @@
 import { supabase } from './supabase.js'
 
-let currentNoteId = null
 let saveTimeout = null
 
 // ── NOTES VIEW ────────────────────────────────────────────
@@ -44,18 +43,14 @@ export async function loadNotesView(folderId) {
     </div>
   `
 
-  if (notes.length > 0) {
-    openNote(notes[0].id)
-  }
+  if (notes.length > 0) openNote(notes[0].id)
 }
 
 function renderNoteItem(note) {
   const preview = note.body
     ? note.body.replace(/<[^>]*>/g, '').substring(0, 60) + '...'
     : 'Empty note'
-  const date = new Date(note.updated_at).toLocaleDateString('no-NO', {
-    day: 'numeric', month: 'short'
-  })
+  const date = new Date(note.updated_at).toLocaleDateString('no-NO', { day: 'numeric', month: 'short' })
   return `
     <div class="note-item" id="ni-${note.id}"
          onclick="openNote('${note.id}')"
@@ -69,16 +64,12 @@ function renderNoteItem(note) {
 
 // ── OPEN NOTE ─────────────────────────────────────────────
 window.openNote = async function(noteId) {
-  currentNoteId = noteId
+  window.currentNoteId = noteId
 
   document.querySelectorAll('.note-item').forEach(el => el.classList.remove('active'))
   document.getElementById('ni-' + noteId)?.classList.add('active')
 
-  const { data: note } = await supabase
-    .from('notes')
-    .select('*')
-    .eq('id', noteId)
-    .single()
+  const { data: note } = await supabase.from('notes').select('*').eq('id', noteId).single()
 
   const editor = document.getElementById('notes-editor')
   editor.innerHTML = `
@@ -127,10 +118,8 @@ window.scheduleNoteSave = function() {
   if (indicator) indicator.textContent = 'Saving...'
 
   saveTimeout = setTimeout(async () => {
-    const noteId = currentNoteId || window.currentNoteId
+    const noteId = window.currentNoteId
     if (!noteId) return
-    // keep local in sync
-    currentNoteId = noteId
 
     const title = document.getElementById('note-title-input')?.value.trim() || 'Untitled'
     const body  = document.getElementById('note-body')?.innerHTML || ''
@@ -144,6 +133,15 @@ window.scheduleNoteSave = function() {
     const sidebarItem = document.getElementById('sni-' + noteId)
     if (sidebarItem) sidebarItem.textContent = title
 
+    // Update note list item if visible
+    const listItem = document.getElementById('ni-' + noteId)
+    if (listItem) {
+      const preview = body.replace(/<[^>]*>/g, '').substring(0, 60) + '...'
+      listItem.querySelector('.note-item-title').textContent = title
+      listItem.querySelector('.note-item-preview').textContent = preview
+      listItem.querySelector('.note-item-date').textContent = new Date().toLocaleDateString('no-NO', { day: 'numeric', month: 'short' })
+    }
+
     if (indicator) {
       indicator.textContent = 'Saved'
       setTimeout(() => { if (indicator) indicator.textContent = '' }, 2000)
@@ -155,13 +153,7 @@ window.scheduleNoteSave = function() {
 export async function createNote(folderId) {
   const { data: note, error } = await supabase
     .from('notes')
-    .insert({
-      folder_id: folderId,
-      workspace_id: null,
-      title: 'Untitled',
-      body: '',
-      position: 0
-    })
+    .insert({ folder_id: folderId, workspace_id: null, title: 'Untitled', body: '', position: 0 })
     .select()
     .single()
 
@@ -170,20 +162,17 @@ export async function createNote(folderId) {
   const list = document.getElementById('notes-list-items')
   const empty = list?.querySelector('.notes-empty')
   if (empty) empty.remove()
-
   list?.insertAdjacentHTML('afterbegin', renderNoteItem(note))
 
   openNote(note.id)
 }
 
-// Make createNote available for inline onclick calls
 window.createNote = createNote
 
 // ── NOTE CONTEXT MENU ─────────────────────────────────────
 window.showNoteMenu = function(e, noteId, folderId) {
   e.preventDefault()
   e.stopPropagation()
-
   document.getElementById('context-menu')?.remove()
 
   const menu = document.createElement('div')
@@ -195,7 +184,6 @@ window.showNoteMenu = function(e, noteId, folderId) {
     <div class="context-menu-item" onclick="renameNote('${noteId}')">Rename</div>
     <div class="context-menu-item context-menu-item--danger" onclick="deleteNote('${noteId}', '${folderId}')">Delete</div>
   `
-
   document.body.appendChild(menu)
   setTimeout(() => {
     document.addEventListener('click', () => document.getElementById('context-menu')?.remove(), { once: true })
@@ -204,41 +192,31 @@ window.showNoteMenu = function(e, noteId, folderId) {
 
 window.renameNote = async function(noteId) {
   document.getElementById('context-menu')?.remove()
-
-  const { data: note } = await supabase
-    .from('notes')
-    .select('title')
-    .eq('id', noteId)
-    .single()
-
+  const { data: note } = await supabase.from('notes').select('title').eq('id', noteId).single()
   const newName = prompt('Rename note:', note.title)
   if (!newName || newName.trim() === note.title) return
-
-  await supabase
-    .from('notes')
-    .update({ title: newName.trim() })
-    .eq('id', noteId)
-
+  await supabase.from('notes').update({ title: newName.trim() }).eq('id', noteId)
   const item = document.getElementById('ni-' + noteId)
   if (item) item.querySelector('.note-item-title').textContent = newName.trim()
-
+  const sidebarItem = document.getElementById('sni-' + noteId)
+  if (sidebarItem) sidebarItem.textContent = newName.trim()
   const titleInput = document.getElementById('note-title-input')
-  if (titleInput && currentNoteId === noteId) titleInput.value = newName.trim()
+  if (titleInput && window.currentNoteId === noteId) titleInput.value = newName.trim()
 }
 
 window.deleteNote = async function(noteId, folderId) {
   document.getElementById('context-menu')?.remove()
-
   if (!confirm('Delete this note?')) return
-
   await supabase.from('notes').delete().eq('id', noteId)
-
   document.getElementById('ni-' + noteId)?.remove()
+  document.getElementById('sni-' + noteId)?.remove()
 
-  if (currentNoteId === noteId) {
-    currentNoteId = null
+  if (window.currentNoteId === noteId) {
+    window.currentNoteId = null
     const editor = document.getElementById('notes-editor')
     if (editor) editor.innerHTML = '<div class="notes-editor-empty">Select a note or create a new one</div>'
+    const main = document.getElementById('main-content')
+    if (main && !editor) main.innerHTML = '<div class="main-placeholder">Select a note</div>'
   }
 
   const list = document.getElementById('notes-list-items')

@@ -436,3 +436,4 @@ window.saveNewPin = async function() {
   cancelPinChange()
   alert('PIN updated successfully.')
 }
+window.openSettings = openSettings

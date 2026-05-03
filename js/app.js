@@ -37,15 +37,12 @@ document.querySelectorAll('.topbar-btn[data-view]').forEach(btn => {
 
 // ── MOBILE BOTTOM NAV ─────────────────────────────────────
 window.mobileNav = function (view, btn) {
-  // Only run on mobile
   if (window.innerWidth > 1024) return
 
-  // Update active state on bottom nav buttons
   document.querySelectorAll('.bottom-nav-btn').forEach(b => b.classList.remove('active'))
   if (btn) btn.classList.add('active')
 
   if (view === 'calendar') {
-    // Activate calendar in the sidebar too, then show it
     document.querySelectorAll('.sidebar-row[data-view]').forEach(r => r.classList.remove('active'))
     document.querySelector('.sidebar-row[data-view="calendar"]')?.classList.add('active')
     initCalendar()
@@ -57,27 +54,26 @@ window.mobileNav = function (view, btn) {
     initHabits()
 
   } else if (view === 'today') {
-    // Switch calendar to day view showing today
     document.querySelectorAll('.sidebar-row[data-view]').forEach(r => r.classList.remove('active'))
     document.querySelector('.sidebar-row[data-view="calendar"]')?.classList.add('active')
     initCalendar()
     setTimeout(() => { if (window.setCalView) window.setCalView('day') }, 0)
 
   } else if (view === 'workspaces') {
-    // Show workspaces panel as a mobile overlay
     showMobileWorkspaces()
 
   } else if (view === 'settings') {
     document.querySelectorAll('.sidebar-row[data-view]').forEach(r => r.classList.remove('active'))
-    initSettings()
-    showMobileSettings()
+    openSettings()
   }
 }
 
-// ── MOBILE WORKSPACES OVERLAY ─────────────────────────────
+// ── MOBILE WORKSPACES SIDEBAR ─────────────────────────────
 function showMobileWorkspaces () {
+  if (document.getElementById('mobile-sidebar-backdrop')) return
+
   const sidebar = document.querySelector('.sidebar')
-  
+
   sidebar.style.cssText = `
     display: flex !important;
     position: fixed;
@@ -106,10 +102,19 @@ function showMobileWorkspaces () {
   }
 
   const handleSidebarClick = (e) => {
+    const isNote = e.target.closest('.sidebar-note-item')
     const folderRow = e.target.closest('.folder-row')
+
+    if (isNote) {
+      setTimeout(close, 100)
+      return
+    }
+
     if (folderRow) {
-      // Let the original onclick fire first, then close
-      setTimeout(close, 50)
+      const isNotesFolder = folderRow.classList.contains('folder-row--notes')
+      if (!isNotesFolder) {
+        setTimeout(close, 100)
+      }
     }
   }
 
@@ -117,34 +122,48 @@ function showMobileWorkspaces () {
   sidebar.addEventListener('click', handleSidebarClick)
 }
 
-// ── MOBILE SETTINGS OVERLAY ───────────────────────────────
-function showMobileSettings () {
-  document.querySelector('.mobile-overlay')?.remove()
+// ── PUSH NOTIFICATIONS ────────────────────────────────────
+const VAPID_PUBLIC_KEY = 'BJ9zUi4S9Xh_sBhkMdHipI84Lpavm-zG_mu7x54cB_WFRvpsZZttuPZJL-WOBHrs09n8bGp3IBz0oie4XuN_3xQ'
 
-  const overlay = document.createElement('div')
-  overlay.className = 'mobile-overlay'
-  overlay.innerHTML = `
-    <div class="mobile-overlay-panel">
-      <div class="mobile-overlay-header">
-        <span>Settings</span>
-        <button class="mobile-overlay-close" onclick="this.closest('.mobile-overlay').remove()">✕</button>
-      </div>
-      <div class="mobile-overlay-body" id="mobile-settings-body">
-        Loading…
-      </div>
-    </div>
-  `
-  document.body.appendChild(overlay)
+async function registerPushNotifications () {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
+  try {
+    const registration = await navigator.serviceWorker.ready
+    const permission = await Notification.requestPermission()
+    if (permission !== 'granted') return
+    const existing = await registration.pushManager.getSubscription()
+    if (existing) { await saveSubscription(existing); return }
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    })
+    await saveSubscription(subscription)
+  } catch (err) { console.warn('Push failed:', err) }
+}
 
-  const sidebarSettings = document.querySelector('.settings-section, #settings-panel, .sidebar-settings')
-  const body = overlay.querySelector('#mobile-settings-body')
-  if (sidebarSettings) {
-    body.innerHTML = sidebarSettings.innerHTML
-  } else {
-    body.innerHTML = '<p style="padding:1rem;opacity:.6">Settings coming soon.</p>'
-  }
-
-  overlay.addEventListener('click', e => {
-    if (e.target === overlay) overlay.remove()
+async function saveSubscription (subscription) {
+  const sub = subscription.toJSON()
+  await fetch('/.netlify/functions/save-subscription', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ endpoint: sub.endpoint, keys: sub.keys })
   })
 }
+
+function urlBase64ToUint8Array (base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const raw = atob(base64)
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)))
+}
+
+setTimeout(registerPushNotifications, 3000)
+// Force bottom nav reflow on PWA launch
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    document.body.style.display = 'none'
+    requestAnimationFrame(() => {
+      document.body.style.display = ''
+    })
+  }, 100)
+})

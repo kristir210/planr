@@ -4,7 +4,7 @@ let currentDate = new Date()
 let currentView = 'month'
 let allWorkspaces = []
 
-const HOUR_HEIGHT = 60 // px per hour in day view
+const HOUR_HEIGHT = 60
 
 export function initCalendar() {
   renderCalendar()
@@ -12,7 +12,6 @@ export function initCalendar() {
 
 async function renderCalendar() {
   const main = document.getElementById('main-content')
-
   main.innerHTML = `
     <div class="calendar-view">
       <div class="calendar-header">
@@ -34,7 +33,6 @@ async function renderCalendar() {
       </div>
     </div>
   `
-
   await loadCalendarData()
 }
 
@@ -47,45 +45,24 @@ async function loadCalendarData() {
   const endISO   = endStr   + 'T23:59:59'
 
   const [tasksRes, eventsRes, holidaysRes, workspacesRes, habitsRes, completionsRes] = await Promise.all([
-    supabase
-      .from('tasks')
-      .select('*, folders(workspace_id, workspaces(colour, name))')
-      .not('due_date', 'is', null)
-      .gte('due_date', startStr)
-      .lte('due_date', endStr)
-      .eq('done', false),
-    supabase
-      .from('events')
-      .select('*, folders(id, name, workspaces(id, colour, name)), workspaces(id, colour, name)')
-      .lte('start_time', endISO)
-      .gte('end_time', startISO),
-    supabase
-      .from('public_holidays')
-      .select('*')
-      .gte('date', startStr)
-      .lte('date', endStr),
-    supabase
-      .from('workspaces')
-      .select('id, name, colour')
-      .order('position'),
-    supabase
-      .from('habits')
-      .select('*')
-      .order('position'),
-    supabase
-      .from('habit_completions')
-      .select('habit_id, completed_date')
-      .gte('completed_date', startStr)
-      .lte('completed_date', endStr)
+    supabase.from('tasks').select('*, folders(workspace_id, workspaces(colour, name))')
+      .not('due_date', 'is', null).gte('due_date', startStr).lte('due_date', endStr).eq('done', false),
+    supabase.from('events').select('*, folders(id, name, workspaces(id, colour, name)), workspaces(id, colour, name)')
+      .lte('start_time', endISO).gte('end_time', startISO),
+    supabase.from('public_holidays').select('*').gte('date', startStr).lte('date', endStr),
+    supabase.from('workspaces').select('id, name, colour').order('position'),
+    supabase.from('habits').select('*').order('position'),
+    supabase.from('habit_completions').select('habit_id, completed_date')
+      .gte('completed_date', startStr).lte('completed_date', endStr)
   ])
 
   allWorkspaces = workspacesRes.data || []
   renderLegend(allWorkspaces)
 
-  const habits       = habitsRes.data || []
-  const completions  = completionsRes.data || []
+  const habits      = habitsRes.data || []
+  const completions = completionsRes.data || []
   const completedSet = new Set(completions.map(c => `${c.habit_id}|${c.completed_date}`))
-  const events       = eventsRes.data || []
+  const events      = eventsRes.data || []
 
   if (currentView === 'month') {
     renderMonthView(tasksRes.data || [], events, holidaysRes.data || [], habits, completedSet)
@@ -157,14 +134,34 @@ function renderLegend(workspaces) {
   `
 }
 
+// ── SORT: chronological, no-time items first by type ─────
 function sortItems(items) {
-  const order = { holiday: 0, habit: 1, event: 2, task: 3 }
   return [...items].sort((a, b) => {
-    const typeDiff = (order[a.type] ?? 4) - (order[b.type] ?? 4)
-    if (typeDiff !== 0) return typeDiff
     if (a.time && b.time) return a.time.localeCompare(b.time)
-    return 0
+    if (a.time && !b.time) return 1
+    if (!a.time && b.time) return -1
+    const order = { holiday: 0, habit: 1, event: 2, task: 3 }
+    return (order[a.type] ?? 4) - (order[b.type] ?? 4)
   })
+}
+
+function isHabitScheduled(freq, dow, d) {
+  if (freq === 'daily') return true
+  if (freq === 'weekdays') return !['sat', 'sun'].includes(dow)
+  if (freq === 'weekends') return ['sat', 'sun'].includes(dow)
+  if (freq.startsWith('interval:')) {
+    const parts = freq.split(':')
+    const days = parseInt(parts[1])
+    const start = parts[2] ? new Date(parts[2]) : new Date()
+    const diff = Math.round((d - start) / (1000 * 60 * 60 * 24))
+    return diff >= 0 && diff % days === 0
+  }
+  if (freq.startsWith('monthly:')) return d.getDate() === parseInt(freq.split(':')[1])
+  if (freq.startsWith('yearly:')) {
+    const [month, day] = freq.split(':')[1].split('-').map(Number)
+    return d.getMonth() + 1 === month && d.getDate() === day
+  }
+  return freq.split(',').includes(dow)
 }
 
 function buildDayMap(tasks, singleDayEvents, holidays, habits, completedSet) {
@@ -181,20 +178,16 @@ function buildDayMap(tasks, singleDayEvents, holidays, habits, completedSet) {
 
   const { start, end } = getDateRange()
   const dayOfWeekMap = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+
   habits.forEach(h => {
     const d = new Date(start)
     while (d <= end) {
       const dow     = dayOfWeekMap[d.getDay()]
       const dateStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`
-      let scheduled = false
-      if (h.frequency === 'daily') scheduled = true
-      else if (h.frequency === 'weekdays') scheduled = !['sat', 'sun'].includes(dow)
-      else if (h.frequency === 'weekends') scheduled = ['sat', 'sun'].includes(dow)
-      else scheduled = h.frequency.split(',').includes(dow)
-
-      if (scheduled) {
+      if (isHabitScheduled(h.frequency, dow, d)) {
         const done = completedSet.has(`${h.id}|${dateStr}`)
-        add(dateStr, { type: 'habit', id: h.id, title: h.name, colour: '#7a6e58', done })
+        const time = h.reminder_time ? h.reminder_time.substring(0, 5) : null
+        add(dateStr, { type: 'habit', id: h.id, title: h.name, colour: '#7a6e58', done, time })
       }
       d.setDate(d.getDate() + 1)
     }
@@ -210,7 +203,8 @@ function buildDayMap(tasks, singleDayEvents, holidays, habits, completedSet) {
     if (!t.due_date) return
     const overdue = new Date(t.due_date) < new Date(new Date().toDateString())
     const colour  = overdue ? '#b05050' : (t.folders?.workspaces?.colour || '#c9a96e')
-    add(t.due_date, { type: 'task', id: t.id, title: t.title, colour, overdue })
+    const time    = t.reminder_time ? t.reminder_time.substring(11, 16) : null
+    add(t.due_date, { type: 'task', id: t.id, title: t.title, colour, overdue, time })
   })
 
   Object.keys(map).forEach(k => { map[k] = sortItems(map[k]) })
@@ -272,8 +266,6 @@ function renderMonthView(tasks, events, holidays, habits, completedSet) {
   }
 
   const MAX_ITEMS = 2
-  // Total columns = 8 (week number + 7 days)
-  // We insert a week-num div every 7 day cells, so loop over (7+1)=8 columns
   let html = `
     <div class="cal-month-wrapper">
       <div class="cal-month-grid" id="cal-month-grid">
@@ -291,12 +283,10 @@ function renderMonthView(tasks, events, holidays, habits, completedSet) {
   const totalDayCells = Math.ceil((startPad + daysInMonth) / 7) * 7
 
   for (let i = 0; i < totalDayCells; i++) {
-    // Insert week number at start of each 7-day row
     if (i % 7 === 0) {
       const cellDate = new Date(year, month, 1 - startPad + i)
       html += `<div class="cal-week-num">${getWeekNumber(cellDate)}</div>`
     }
-
     if (i < startPad || dayCount > daysInMonth) {
       html += `<div class="cal-cell cal-cell--empty"></div>`
     } else {
@@ -381,7 +371,7 @@ function renderMultiDayBars(events, gridDates) {
   })
 }
 
-// ── WEEK VIEW (horizontal scroll, auto-scroll to today) ───
+// ── WEEK VIEW ─────────────────────────────────────────────
 function renderWeekView(tasks, events, holidays, habits, completedSet) {
   const body     = document.getElementById('calendar-body')
   const { start } = getDateRange()
@@ -432,17 +422,13 @@ function renderWeekView(tasks, events, holidays, habits, completedSet) {
   document.getElementById('cal-title').textContent =
     `${days[0].toLocaleDateString('no-NO', { day: 'numeric', month: 'short' })} — ${days[6].toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })}`
 
-  // Scrollable wrapper with fixed column widths
-  let html = '<div class="cal-week-scroll">'
-  html += '<div class="cal-week-grid">'
-
+  let html = '<div class="cal-week-scroll"><div class="cal-week-grid">'
   let todayIndex = -1
 
   days.forEach((day, i) => {
     const dateStr = `${day.getFullYear()}-${pad(day.getMonth()+1)}-${pad(day.getDate())}`
     const isToday = dateStr === today
     if (isToday) todayIndex = i
-
     const items = dayMap[dateStr] || []
 
     html += `
@@ -463,13 +449,11 @@ function renderWeekView(tasks, events, holidays, habits, completedSet) {
   html += '</div></div>'
   body.innerHTML = html
 
-  // Auto-scroll to today (or as close as possible)
   if (todayIndex >= 0) {
     setTimeout(() => {
       const scrollContainer = body.querySelector('.cal-week-scroll')
       const todayCol = document.getElementById('cal-week-col-' + todayIndex)
       if (scrollContainer && todayCol) {
-        // Center today's column in the view
         const colLeft = todayCol.offsetLeft
         const colWidth = todayCol.offsetWidth
         const containerWidth = scrollContainer.offsetWidth
@@ -479,7 +463,7 @@ function renderWeekView(tasks, events, holidays, habits, completedSet) {
   }
 }
 
-// ── DAY VIEW — POSITIONED BLOCKS ──────────────────────────
+// ── DAY VIEW ──────────────────────────────────────────────
 function renderDayView(tasks, events, holidays, habits, completedSet) {
   const body    = document.getElementById('calendar-body')
   const pad     = n => String(n).padStart(2, '0')
@@ -498,13 +482,7 @@ function renderDayView(tasks, events, holidays, habits, completedSet) {
   const dayOfWeekMap = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
   habits.forEach(h => {
     const dow = dayOfWeekMap[currentDate.getDay()]
-    let scheduled = false
-    if (h.frequency === 'daily') scheduled = true
-    else if (h.frequency === 'weekdays') scheduled = !['sat', 'sun'].includes(dow)
-    else if (h.frequency === 'weekends') scheduled = ['sat', 'sun'].includes(dow)
-    else scheduled = h.frequency.split(',').includes(dow)
-    if (!scheduled) return
-
+    if (!isHabitScheduled(h.frequency, dow, currentDate)) return
     const done   = completedSet.has(`${h.id}|${dateStr}`)
     const colour = '#7a6e58'
     if (h.reminder_time) {
@@ -516,10 +494,9 @@ function renderDayView(tasks, events, holidays, habits, completedSet) {
   })
 
   events.forEach(e => {
-    const evStart  = e.start_time.split('T')[0]
-    const evEnd    = e.end_time ? e.end_time.split('T')[0] : evStart
+    const evStart = e.start_time.split('T')[0]
+    const evEnd   = e.end_time ? e.end_time.split('T')[0] : evStart
     if (dateStr < evStart || dateStr > evEnd) return
-
     const colour    = getEventColour(e)
     const startTime = getLocalTime(e.start_time)
     const endTime   = e.end_time ? getLocalTime(e.end_time) : null
@@ -527,7 +504,6 @@ function renderDayView(tasks, events, holidays, habits, completedSet) {
     if (e.all_day) {
       bannerItems.push({ type: 'event', id: e.id, title: e.title, colour })
     } else if (evEnd > evStart) {
-      // Multi-day timed event — show as block on each day it covers
       const startMin = dateStr === evStart ? timeToMinutes(startTime || '00:00') : 0
       const endMin   = dateStr === evEnd   ? timeToMinutes(getLocalTime(e.end_time) || '23:59') : 24 * 60
       timedItems.push({ type: 'event', id: e.id, title: e.title, colour, startMin, endMin })
@@ -581,7 +557,6 @@ function renderDayView(tasks, events, holidays, habits, completedSet) {
   html += `<div class="cal-day-add-btn" onclick="openCalAddPopup('${dateStr}')">+ Add task or event</div>`
   html += `<div class="cal-day-hours" style="position:relative; height:${totalHeight}px;">`
 
-  // Hour grid lines — clicking a slot pre-fills the time
   for (let h = 0; h < 24; h++) {
     const top     = h * HOUR_HEIGHT
     const timeStr = `${pad(h)}:00`
@@ -594,13 +569,11 @@ function renderDayView(tasks, events, holidays, habits, completedSet) {
     `
   }
 
-  // Now line
   if (isToday) {
     const nowTop = (nowMin / 60) * HOUR_HEIGHT
     html += `<div class="cal-now-indicator" style="top:${nowTop}px;"></div>`
   }
 
-  // Timed blocks
   const columns = layoutColumns(timedItems)
   const numCols = Math.max(columns.length, 1)
 
@@ -610,7 +583,6 @@ function renderDayView(tasks, events, holidays, habits, completedSet) {
     const height = Math.max(((item.endMin - item.startMin) / 60) * HOUR_HEIGHT, 24)
     const width  = `calc((100% - 52px) / ${numCols})`
     const left   = `calc(52px + (100% - 52px) / ${numCols} * ${col})`
-
     const clickHandler = item.type === 'event'
       ? `onclick="event.stopPropagation(); openEventEditModal('${item.id}')"`
       : item.type === 'task'
@@ -631,13 +603,10 @@ function renderDayView(tasks, events, holidays, habits, completedSet) {
   html += '</div></div>'
   body.innerHTML = html
 
-  // Scroll to first event or current time
   const scrollTo = isToday ? nowMin : (timedItems.length ? Math.min(...timedItems.map(i => i.startMin)) : 480)
   const hoursEl  = body.querySelector('.cal-day-hours')
   if (hoursEl) {
-    setTimeout(() => {
-      body.scrollTop = Math.max(0, (scrollTo / 60) * HOUR_HEIGHT - 80)
-    }, 50)
+    setTimeout(() => { body.scrollTop = Math.max(0, (scrollTo / 60) * HOUR_HEIGHT - 80) }, 50)
   }
 }
 
@@ -780,14 +749,12 @@ window.saveEventEdit = async function(eventId) {
   const folderId    = document.getElementById('ee-folder').value || null
   if (!title || !startDate) return
 
-  await supabase.from('events')
-    .update({
-      title,
-      start_time: startTime ? `${startDate}T${startTime}:00` : `${startDate}T00:00:00`,
-      end_time:   endDate ? (endTime ? `${endDate}T${endTime}:00` : `${endDate}T23:59:00`) : null,
-      all_day: !startTime, location, workspace_id: workspaceId, folder_id: folderId
-    })
-    .eq('id', eventId)
+  await supabase.from('events').update({
+    title,
+    start_time: startTime ? `${startDate}T${startTime}:00` : `${startDate}T00:00:00`,
+    end_time:   endDate ? (endTime ? `${endDate}T${endTime}:00` : `${endDate}T23:59:00`) : null,
+    all_day: !startTime, location, workspace_id: workspaceId, folder_id: folderId
+  }).eq('id', eventId)
 
   closeEventEditModal()
   loadCalendarData()
@@ -1014,5 +981,4 @@ window.calNext = function() {
 }
 
 window.calToday = function() { currentDate = new Date(); loadCalendarData() }
-
 window.setCalView = function(view) { currentView = view; renderCalendar() }
