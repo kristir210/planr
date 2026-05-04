@@ -27,7 +27,12 @@ export async function onRequest(context) {
     const habits = await habitsRes.json()
 
     // Load tasks
-    const tasksRes = await fetch(`${env.SUPABASE_URL}/rest/v1/tasks?select=id,title,reminder_time&done=eq.false&reminder_time=gte.${todayStr}T00:00:00&reminder_time=lte.${todayStr}T23:59:59`, { headers })
+    // Load tasks — use UTC for comparison since reminder_time is stored in UTC
+    const utcToday = `${nowUTC.getUTCFullYear()}-${pad(nowUTC.getUTCMonth()+1)}-${pad(nowUTC.getUTCDate())}`
+    const utcWindowStart = `${pad(nowUTC.getUTCHours())}:${pad(nowUTC.getUTCMinutes())}`
+    const utcWindowEnd = new Date(nowUTC.getTime() + 60000)
+    const utcWindowEndTime = `${pad(utcWindowEnd.getUTCHours())}:${pad(utcWindowEnd.getUTCMinutes())}`
+    const tasksRes = await fetch(`${env.SUPABASE_URL}/rest/v1/tasks?select=id,title,reminder_time&done=eq.false&reminder_time=gte.${utcToday}T00:00:00&reminder_time=lte.${utcToday}T23:59:59`, { headers })
     const tasks = await tasksRes.json()
 
     const dayOfWeekMap = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
@@ -67,7 +72,7 @@ export async function onRequest(context) {
     for (const task of (tasks || [])) {
       if (!task.reminder_time) continue
       const reminderTime = task.reminder_time.substring(11, 16)
-      if (reminderTime >= windowStartTime && reminderTime < windowEndTime) {
+      if (reminderTime >= utcWindowStart && reminderTime < utcWindowEndTime) {
         notifications.push({ title: '📋 Task reminder', body: task.title, tag: `task-${task.id}` })
       }
     }
