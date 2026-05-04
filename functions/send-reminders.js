@@ -1,4 +1,3 @@
-
 export async function onRequest(context) {
   const { env } = context
 
@@ -6,10 +5,20 @@ export async function onRequest(context) {
     const nowUTC = new Date()
     const nowNorway = new Date(nowUTC.toLocaleString('en-US', { timeZone: 'Europe/Oslo' }))
     const pad = n => String(n).padStart(2, '0')
-    const todayStr = `${nowNorway.getFullYear()}-${pad(nowNorway.getMonth()+1)}-${pad(nowNorway.getDate())}`
-    const windowStartTime = `${pad(nowNorway.getHours())}:${pad(nowNorway.getMinutes())}`
-    const windowEnd = new Date(nowNorway.getTime() + 1 * 60 * 1000)
-    const windowEndTime = `${pad(windowEnd.getHours())}:${pad(windowEnd.getMinutes())}`
+
+    // Norwegian time window — for habits (stored as local HH:MM)
+    const norwayWindowStart = `${pad(nowNorway.getHours())}:${pad(nowNorway.getMinutes())}`
+    const norwayWindowEnd = new Date(nowNorway.getTime() + 60000)
+    const norwayWindowEndTime = `${pad(norwayWindowEnd.getHours())}:${pad(norwayWindowEnd.getMinutes())}`
+
+    // UTC time window — for tasks (stored as UTC timestamptz)
+    const utcWindowStart = `${pad(nowUTC.getUTCHours())}:${pad(nowUTC.getUTCMinutes())}`
+    const utcWindowEnd = new Date(nowUTC.getTime() + 60000)
+    const utcWindowEndTime = `${pad(utcWindowEnd.getUTCHours())}:${pad(utcWindowEnd.getUTCMinutes())}`
+
+    // Today in both timezones for filtering
+    const norwayToday = `${nowNorway.getFullYear()}-${pad(nowNorway.getMonth()+1)}-${pad(nowNorway.getDate())}`
+    const utcToday = `${nowUTC.getUTCFullYear()}-${pad(nowUTC.getUTCMonth()+1)}-${pad(nowUTC.getUTCDate())}`
 
     const headers = {
       'apikey': env.SUPABASE_SERVICE_KEY,
@@ -26,15 +35,15 @@ export async function onRequest(context) {
     const habitsRes = await fetch(`${env.SUPABASE_URL}/rest/v1/habits?select=*&reminder_time=not.is.null&order=position`, { headers })
     const habits = await habitsRes.json()
 
-    // Load tasks
-    const tasksRes = await fetch(`${env.SUPABASE_URL}/rest/v1/tasks?select=id,title,reminder_time&done=eq.false&reminder_time=gte.${todayStr}T00:00:00&reminder_time=lte.${todayStr}T23:59:59`, { headers })
+    // Load tasks — filter by UTC date
+    const tasksRes = await fetch(`${env.SUPABASE_URL}/rest/v1/tasks?select=id,title,reminder_time&done=eq.false&reminder_time=gte.${utcToday}T00:00:00&reminder_time=lte.${utcToday}T23:59:59`, { headers })
     const tasks = await tasksRes.json()
 
     const dayOfWeekMap = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
     const dayOfWeek = dayOfWeekMap[nowNorway.getDay()]
     const notifications = []
 
-    // Check habits
+    // Check habits — compare using Norwegian time
     for (const habit of (habits || [])) {
       const freq = habit.frequency
       let scheduledToday = false
@@ -58,16 +67,16 @@ export async function onRequest(context) {
 
       if (!scheduledToday) continue
       const reminderTime = habit.reminder_time.substring(0, 5)
-      if (reminderTime >= windowStartTime && reminderTime < windowEndTime) {
+      if (reminderTime >= norwayWindowStart && reminderTime < norwayWindowEndTime) {
         notifications.push({ title: '🔁 Habit reminder', body: habit.name, tag: `habit-${habit.id}` })
       }
     }
 
-    // Check tasks
+    // Check tasks — compare using UTC time
     for (const task of (tasks || [])) {
       if (!task.reminder_time) continue
       const reminderTime = task.reminder_time.substring(11, 16)
-      if (reminderTime >= windowStartTime && reminderTime < windowEndTime) {
+      if (reminderTime >= utcWindowStart && reminderTime < utcWindowEndTime) {
         notifications.push({ title: '📋 Task reminder', body: task.title, tag: `task-${task.id}` })
       }
     }
@@ -94,7 +103,8 @@ export async function onRequest(context) {
       }
     }
 
-    if (!notifications.length) return new Response(`No notifications. Subs: ${subs?.length}. Tasks: ${tasks?.length}. Habits: ${habits?.length}. UTC window: ${utcWindowStart}-${utcWindowEndTime}. Norway window: ${norwayWindowStart}-${norwayWindowEndTime}`, { status: 200 })
+    return new Response(`Done. Subs: ${subs?.length}. Tasks: ${tasks?.length}. Habits: ${habits?.length}. Notifications: ${notifications.length}. UTC window: ${utcWindowStart}-${utcWindowEndTime}. Norway window: ${norwayWindowStart}-${norwayWindowEndTime}`, { status: 200 })
+
   } catch (err) {
     return new Response('Error: ' + err.message, { status: 500 })
   }
