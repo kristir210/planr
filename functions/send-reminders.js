@@ -6,18 +6,14 @@ export async function onRequest(context) {
     const nowNorway = new Date(nowUTC.toLocaleString('en-US', { timeZone: 'Europe/Oslo' }))
     const pad = n => String(n).padStart(2, '0')
 
-    // Norwegian time window — for habits (stored as local HH:MM)
     const norwayWindowStart = `${pad(nowNorway.getHours())}:${pad(nowNorway.getMinutes())}`
     const norwayWindowEnd = new Date(nowNorway.getTime() + 60000)
     const norwayWindowEndTime = `${pad(norwayWindowEnd.getHours())}:${pad(norwayWindowEnd.getMinutes())}`
 
-    // UTC time window — for tasks (stored as UTC timestamptz)
     const utcWindowStart = `${pad(nowUTC.getUTCHours())}:${pad(nowUTC.getUTCMinutes())}`
     const utcWindowEnd = new Date(nowUTC.getTime() + 60000)
     const utcWindowEndTime = `${pad(utcWindowEnd.getUTCHours())}:${pad(utcWindowEnd.getUTCMinutes())}`
 
-    // Today in both timezones for filtering
-    const norwayToday = `${nowNorway.getFullYear()}-${pad(nowNorway.getMonth()+1)}-${pad(nowNorway.getDate())}`
     const utcToday = `${nowUTC.getUTCFullYear()}-${pad(nowUTC.getUTCMonth()+1)}-${pad(nowUTC.getUTCDate())}`
 
     const headers = {
@@ -26,16 +22,13 @@ export async function onRequest(context) {
       'Content-Type': 'application/json'
     }
 
-    // Load subscriptions
     const subsRes = await fetch(`${env.SUPABASE_URL}/rest/v1/push_subscriptions?select=*`, { headers })
     const subs = await subsRes.json()
     if (!subs?.length) return new Response('No subscriptions', { status: 200 })
 
-    // Load habits
     const habitsRes = await fetch(`${env.SUPABASE_URL}/rest/v1/habits?select=*&reminder_time=not.is.null&order=position`, { headers })
     const habits = await habitsRes.json()
 
-    // Load tasks — filter by UTC date
     const tasksRes = await fetch(`${env.SUPABASE_URL}/rest/v1/tasks?select=id,title,reminder_time&done=eq.false&reminder_time=gte.${utcToday}T00:00:00&reminder_time=lte.${utcToday}T23:59:59`, { headers })
     const tasks = await tasksRes.json()
 
@@ -43,7 +36,6 @@ export async function onRequest(context) {
     const dayOfWeek = dayOfWeekMap[nowNorway.getDay()]
     const notifications = []
 
-    // Check habits — compare using Norwegian time
     for (const habit of (habits || [])) {
       const freq = habit.frequency
       let scheduledToday = false
@@ -72,7 +64,6 @@ export async function onRequest(context) {
       }
     }
 
-    // Check tasks — compare using UTC time
     for (const task of (tasks || [])) {
       if (!task.reminder_time) continue
       const reminderTime = task.reminder_time.substring(11, 16)
@@ -81,9 +72,9 @@ export async function onRequest(context) {
       }
     }
 
-    if (!notifications.length) return new Response(`No notifications. Subs: ${subs?.length}. Tasks: ${tasks?.length}. Habits: ${habits?.length}. UTC window: ${utcWindowStart}-${utcWindowEndTime}. Norway window: ${norwayWindowStart}-${norwayWindowEndTime}`, { status: 200 })
+    if (!notifications.length) return new Response(`No notifications. Subs: ${subs?.length}. Tasks: ${tasks?.length}. Habits: ${habits?.length}. UTC: ${utcWindowStart}-${utcWindowEndTime}. Norway: ${norwayWindowStart}-${norwayWindowEndTime}`, { status: 200 })
 
-    // Send push notifications
+    const errors = []
     for (const sub of subs) {
       for (const notif of notifications) {
         try {
@@ -94,6 +85,7 @@ export async function onRequest(context) {
             env.VAPID_PRIVATE_KEY
           )
         } catch (err) {
+          errors.push(`${sub.endpoint.substring(0, 40)}: ${err.message}`)
           if (err.message?.includes('410')) {
             await fetch(`${env.SUPABASE_URL}/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(sub.endpoint)}`, {
               method: 'DELETE', headers
@@ -103,7 +95,7 @@ export async function onRequest(context) {
       }
     }
 
-    return new Response(`Done. Subs: ${subs?.length}. Tasks: ${tasks?.length}. Habits: ${habits?.length}. Notifications: ${notifications.length}. UTC window: ${utcWindowStart}-${utcWindowEndTime}. Norway window: ${norwayWindowStart}-${norwayWindowEndTime}`, { status: 200 })
+    return new Response(`Done. Notifications: ${notifications.length}. Errors: ${errors.join(' | ')}`, { status: 200 })
 
   } catch (err) {
     return new Response('Error: ' + err.message, { status: 500 })
