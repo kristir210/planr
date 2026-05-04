@@ -141,13 +141,14 @@ async function registerPushNotifications () {
   } catch (err) { console.warn('Push failed:', err) }
 }
 
-async function saveSubscription (subscription) {
+async function saveSubscription(subscription) {
   const sub = subscription.toJSON()
-  await fetch('/functions/save-subscription', {
+  const res = await fetch('/save-subscription', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ endpoint: sub.endpoint, keys: sub.keys })
   })
+  console.log('save-subscription response:', res.status, await res.text())
 }
 
 function urlBase64ToUint8Array (base64String) {
