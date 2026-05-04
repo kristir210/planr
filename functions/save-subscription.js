@@ -8,14 +8,22 @@ export async function onRequestPost(context) {
       return new Response('Invalid subscription', { status: 400 })
     }
 
+    const headers = {
+      'Content-Type': 'application/json',
+      'apikey': env.SUPABASE_SERVICE_KEY,
+      'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`
+    }
+
+    // Delete existing subscription with same endpoint first
+    await fetch(`${env.SUPABASE_URL}/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}`, {
+      method: 'DELETE',
+      headers
+    })
+
+    // Insert fresh
     const res = await fetch(`${env.SUPABASE_URL}/rest/v1/push_subscriptions`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': env.SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
-        'Prefer': 'resolution=merge-duplicates'
-      },
+      headers,
       body: JSON.stringify({ endpoint, p256dh: keys.p256dh, auth: keys.auth })
     })
 
@@ -28,4 +36,15 @@ export async function onRequestPost(context) {
   } catch (err) {
     return new Response('Error: ' + err.message, { status: 500 })
   }
+}
+
+export async function onRequestOptions() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    }
+  })
 }
