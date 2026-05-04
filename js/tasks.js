@@ -55,6 +55,9 @@ export async function loadTaskView(folderId) {
   document.getElementById('task-completed-btn').addEventListener('click', () => {
     loadCompletedTasks(folderId)
   })
+
+  // Enable drag to reorder
+  setTimeout(() => window.initTaskDrag(document.getElementById('task-list')), 100)
 }
 
 function renderTask(task, colour) {

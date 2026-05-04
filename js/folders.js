@@ -154,6 +154,7 @@ async function refreshFolderBody(folderId, workspaceId, colour, depth, body) {
       noteEl.id = 'sni-' + note.id
       noteEl.style.paddingLeft = `${indent + 4}px`
       noteEl.textContent = note.title || 'Untitled'
+      noteEl.title = note.title || 'Untitled'
       noteEl.onclick = () => {
         document.querySelectorAll('.sidebar-note-item').forEach(n => n.classList.remove('active'))
         noteEl.classList.add('active')
@@ -256,9 +257,10 @@ window.showNoteMenu = function(e, noteId, folderId) {
   menu.id = 'context-menu'
   menu.className = 'context-menu'
   menu.style.left = e.clientX + 'px'
-  menu.style.top = e.clientY + 'px'
+  menu.style.top  = e.clientY + 'px'
   menu.innerHTML = `
     <div class="context-menu-item" onclick="renameNote('${noteId}')">Rename</div>
+    <div class="context-menu-item" onclick="openMoveNoteModal('${noteId}', '${folderId}')">Move to...</div>
     <div class="context-menu-item context-menu-item--danger" onclick="deleteNote('${noteId}', '${folderId}')">Delete</div>
   `
   document.body.appendChild(menu)

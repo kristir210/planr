@@ -214,3 +214,21 @@
   background: var(--bg-mid); 
   color: var(--text); 
 }
+/* ── CUSTOM SCROLLBAR ─────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3a3428;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4a4438;
+}

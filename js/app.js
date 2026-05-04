@@ -167,3 +167,76 @@ window.addEventListener('load', () => {
     })
   }, 100)
 })
+// ── DRAG TO REORDER ───────────────────────────────────
+function makeDraggable(container, selector) {
+  let dragSrc = null
+
+  container.addEventListener('dragstart', e => {
+    const el = e.target.closest(selector)
+    if (!el) return
+    dragSrc = el
+    el.classList.add('dragging')
+    e.dataTransfer.effectAllowed = 'move'
+  })
+
+  container.addEventListener('dragend', e => {
+    const el = e.target.closest(selector)
+    if (!el) return
+    el.classList.remove('dragging')
+    container.querySelectorAll('.drag-over').forEach(n => n.classList.remove('drag-over'))
+    dragSrc = null
+  })
+
+  container.addEventListener('dragover', e => {
+    e.preventDefault()
+    const el = e.target.closest(selector)
+    if (!el || el === dragSrc) return
+    container.querySelectorAll('.drag-over').forEach(n => n.classList.remove('drag-over'))
+    el.classList.add('drag-over')
+  })
+
+  container.addEventListener('drop', e => {
+    e.preventDefault()
+    const el = e.target.closest(selector)
+    if (!el || el === dragSrc || !dragSrc) return
+    el.classList.remove('drag-over')
+    const parent = el.parentNode
+    const siblings = [...parent.children]
+    const srcIdx = siblings.indexOf(dragSrc)
+    const tgtIdx = siblings.indexOf(el)
+    if (srcIdx < tgtIdx) {
+      parent.insertBefore(dragSrc, el.nextSibling)
+    } else {
+      parent.insertBefore(dragSrc, el)
+    }
+  })
+}
+
+// Wire up drag on sidebar elements
+setTimeout(() => {
+  // Workspaces
+  const wsList = document.getElementById('workspace-list')
+  if (wsList) {
+    wsList.querySelectorAll('.workspace-item').forEach(el => el.setAttribute('draggable', 'true'))
+    makeDraggable(wsList, '.workspace-item')
+  }
+
+  // Folders — observe for dynamic additions
+  const observer = new MutationObserver(() => {
+    document.querySelectorAll('.folder-item').forEach(el => el.setAttribute('draggable', 'true'))
+    document.querySelectorAll('.workspace-body').forEach(body => {
+      if (!body.dataset.dragInit) {
+        body.dataset.dragInit = '1'
+        makeDraggable(body, '.folder-item')
+      }
+    })
+  })
+  observer.observe(document.querySelector('.sidebar') || document.body, { childList: true, subtree: true })
+}, 500)
+
+// Tasks
+window.initTaskDrag = function(listEl) {
+  if (!listEl) return
+  listEl.querySelectorAll('.task-row').forEach(el => el.setAttribute('draggable', 'true'))
+  makeDraggable(listEl, '.task-row')
+}

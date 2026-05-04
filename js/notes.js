@@ -122,18 +122,22 @@ window.scheduleNoteSave = function() {
     if (!noteId) return
 
     const title = document.getElementById('note-title-input')?.value.trim() || 'Untitled'
-    const body  = document.getElementById('note-body')?.innerHTML || ''
+    const bodyEl = document.getElementById('note-body')
+    if (!bodyEl) return
+
+    // Auto-detect URLs and convert to links
+    autoLinkUrls(bodyEl)
+
+    const body = bodyEl.innerHTML || ''
 
     await supabase
       .from('notes')
       .update({ title, body, updated_at: new Date().toISOString() })
       .eq('id', noteId)
 
-    // Update sidebar note item title if visible
     const sidebarItem = document.getElementById('sni-' + noteId)
     if (sidebarItem) sidebarItem.textContent = title
 
-    // Update note list item if visible
     const listItem = document.getElementById('ni-' + noteId)
     if (listItem) {
       const preview = body.replace(/<[^>]*>/g, '').substring(0, 60) + '...'
@@ -182,6 +186,7 @@ window.showNoteMenu = function(e, noteId, folderId) {
   menu.style.top  = e.clientY + 'px'
   menu.innerHTML = `
     <div class="context-menu-item" onclick="renameNote('${noteId}')">Rename</div>
+    <div class="context-menu-item" onclick="openMoveNoteModal('${noteId}', '${folderId}')">Move to...</div>
     <div class="context-menu-item context-menu-item--danger" onclick="deleteNote('${noteId}', '${folderId}')">Delete</div>
   `
   document.body.appendChild(menu)
@@ -222,5 +227,89 @@ window.deleteNote = async function(noteId, folderId) {
   const list = document.getElementById('notes-list-items')
   if (list && list.children.length === 0) {
     list.innerHTML = '<div class="notes-empty">No notes yet</div>'
+  }
+}
+function autoLinkUrls(el) {
+  // Walk text nodes and convert URLs to <a> tags
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+  const nodesToReplace = []
+
+  while (walker.nextNode()) {
+    const node = walker.currentNode
+    // Skip if already inside a link
+    if (node.parentElement.closest('a')) continue
+    if (/https?:\/\/[^\s<>"]+/i.test(node.textContent)) {
+      nodesToReplace.push(node)
+    }
+  }
+
+  nodesToReplace.forEach(node => {
+    const span = document.createElement('span')
+    span.innerHTML = node.textContent.replace(
+      /https?:\/\/[^\s<>"]+/gi,
+      url => `<a href="${url}" target="_blank" style="color:var(--amber);text-decoration:underline;">${url}</a>`
+    )
+    node.parentNode.replaceChild(span, node)
+  })
+}
+window.openMoveNoteModal = async function(noteId, currentFolderId) {
+  document.getElementById('context-menu')?.remove()
+  document.getElementById('move-note-modal')?.remove()
+
+  const { data: folders } = await supabase
+    .from('folders')
+    .select('id, name, workspace_id, workspaces(name)')
+    .eq('type', 'notes')
+    .neq('id', currentFolderId)
+    .order('name')
+
+  const modal = document.createElement('div')
+  modal.id = 'move-note-modal'
+  modal.className = 'popup'
+  modal.innerHTML = `
+    <div class="popup-box">
+      <div class="popup-header">
+        <div class="popup-title">Move to...</div>
+        <button class="popup-close" onclick="document.getElementById('move-note-modal')?.remove()">✕</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto;margin-top:8px;">
+        ${(folders || []).map(f => `
+          <div class="move-folder-option" onclick="moveNoteTo('${noteId}', '${f.id}', '${currentFolderId}')">
+            📁 ${f.workspaces?.name ? f.workspaces.name + ' / ' : ''}${f.name}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `
+  document.body.appendChild(modal)
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove() })
+}
+
+window.moveNoteTo = async function(noteId, newFolderId, oldFolderId) {
+  document.getElementById('move-note-modal')?.remove()
+
+  await supabase.from('notes').update({ folder_id: newFolderId }).eq('id', noteId)
+
+  document.getElementById('sni-' + noteId)?.remove()
+  document.getElementById('ni-' + noteId)?.remove()
+
+  if (window.currentNoteId === noteId) {
+    window.currentNoteId = null
+    const main = document.getElementById('main-content')
+    if (main) main.innerHTML = '<div class="main-placeholder">Note moved — select it from its new folder</div>'
+  }
+
+  const oldFolderBody = document.getElementById('fb-' + oldFolderId)
+  if (oldFolderBody && oldFolderBody.style.display !== 'none') {
+    oldFolderBody.innerHTML = ''
+    oldFolderBody.style.display = 'none'
+    document.getElementById('fc-' + oldFolderId)?.classList.remove('open')
+  }
+}
+window.handleNoteClick = function(e) {
+  const target = e.target.closest('a')
+  if (target && target.href) {
+    e.preventDefault()
+    window.open(target.href, '_blank')
   }
 }
