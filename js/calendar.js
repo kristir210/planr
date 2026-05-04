@@ -203,7 +203,7 @@ function buildDayMap(tasks, singleDayEvents, holidays, habits, completedSet) {
     if (!t.due_date) return
     const overdue = new Date(t.due_date) < new Date(new Date().toDateString())
     const colour  = overdue ? '#b05050' : (t.folders?.workspaces?.colour || '#c9a96e')
-    const time    = t.reminder_time ? t.reminder_time.substring(11, 16) : null
+    const time = t.reminder_time ? new Date(t.reminder_time).toLocaleTimeString('no-NO', {hour:'2-digit', minute:'2-digit', hour12:false}) : null
     add(t.due_date, { type: 'task', id: t.id, title: t.title, colour, overdue, time })
   })
 
@@ -939,9 +939,19 @@ window.saveCalItem = async function(dateStr) {
     const statusBtn   = document.querySelector('#cal-task-form .edit-status-btn.active')
     const status      = statusBtn ? statusBtn.getAttribute('onclick').match(/'([^']+)'/)[1] : 'not_started'
     if (!title) return
+
+    let reminder_time = null
+    if (reminderVal) {
+      const offset = new Date().getTimezoneOffset()
+      const sign = offset <= 0 ? '+' : '-'
+      const absOffset = Math.abs(offset)
+      const h = String(Math.floor(absOffset / 60)).padStart(2, '0')
+      const m = String(absOffset % 60).padStart(2, '0')
+      reminder_time = new Date(`${due_date}T${reminderVal}:00${sign}${h}:${m}`).toISOString()
+    }
+
     await supabase.from('tasks').insert({
-      title, due_date,
-      reminder_time: reminderVal ? new Date(`${due_date}T${reminderVal}:00`).toISOString() : null,
+      title, due_date, reminder_time,
       type, status, workspace_id: workspaceId, folder_id: folderId, position: 0
     })
   } else {
