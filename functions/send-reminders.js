@@ -72,7 +72,7 @@ export async function onRequest(context) {
       }
     }
 
-    if (!notifications.length) return new Response('No notifications', { status: 200 })
+    if (!notifications.length) return new Response(`No notifications. Subs: ${subs?.length}. Tasks: ${tasks?.length}. Habits: ${habits?.length}. UTC window: ${utcWindowStart}-${utcWindowEndTime}. Norway window: ${norwayWindowStart}-${norwayWindowEndTime}`, { status: 200 })
 
     // Send push notifications
     for (const sub of subs) {
