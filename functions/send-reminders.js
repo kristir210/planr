@@ -1,4 +1,3 @@
-import { webPush } from './lib/webpush.js'
 
 export async function onRequest(context) {
   const { env } = context
