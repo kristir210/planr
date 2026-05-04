@@ -321,8 +321,12 @@ window.saveTaskEdit = async function(taskId) {
   let reminder_time = null
   if (timeVal) {
     const baseDate = due_date || new Date().toISOString().split('T')[0]
-    const localDate = new Date(`${baseDate}T${timeVal}:00`)
-    reminder_time = localDate.toISOString()
+    const offset = new Date().getTimezoneOffset()
+    const sign = offset <= 0 ? '+' : '-'
+    const absOffset = Math.abs(offset)
+    const hours = String(Math.floor(absOffset / 60)).padStart(2, '0')
+    const mins = String(absOffset % 60).padStart(2, '0')
+    reminder_time = new Date(`${baseDate}T${timeVal}:00${sign}${hours}:${mins}`).toISOString()
   }
 
   if (!title) return
