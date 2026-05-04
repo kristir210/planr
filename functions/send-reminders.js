@@ -94,7 +94,7 @@ export async function onRequest(context) {
       }
     }
 
-    return new Response('Done', { status: 200 })
+    return new Response(`Done. Subs: ${subs?.length}. Tasks: ${tasks?.length}. Habits: ${habits?.length}. Notifications: ${notifications.length}. UTC window: ${utcWindowStart}-${utcWindowEndTime}`, { status: 200 })
   } catch (err) {
     return new Response('Error: ' + err.message, { status: 500 })
   }
