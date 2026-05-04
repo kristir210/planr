@@ -318,9 +318,12 @@ window.saveTaskEdit = async function(taskId) {
     ? statusBtn.getAttribute('onclick').match(/'([^']+)'/)[1]
     : 'not_started'
 
-  const reminder_time = timeVal
-    ? `${due_date || new Date().toISOString().split('T')[0]}T${timeVal}:00`
-    : null
+  let reminder_time = null
+  if (timeVal) {
+    const baseDate = due_date || new Date().toISOString().split('T')[0]
+    const localDate = new Date(`${baseDate}T${timeVal}:00`)
+    reminder_time = localDate.toISOString()
+  }
 
   if (!title) return
 

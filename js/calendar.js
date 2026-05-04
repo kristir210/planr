@@ -941,7 +941,7 @@ window.saveCalItem = async function(dateStr) {
     if (!title) return
     await supabase.from('tasks').insert({
       title, due_date,
-      reminder_time: reminderVal ? `${due_date}T${reminderVal}:00` : null,
+      reminder_time: reminderVal ? new Date(`${due_date}T${reminderVal}:00`).toISOString() : null,
       type, status, workspace_id: workspaceId, folder_id: folderId, position: 0
     })
   } else {
