@@ -272,7 +272,7 @@ window.openTaskEdit = async function(taskId) {
         </div>
         <div class="edit-field">
           <label class="edit-label">Reminder time</label>
-          <input class="popup-input" id="edit-reminder" type="time" value="${task.reminder_time ? task.reminder_time.substring(11,16) : ''}" />
+          <input class="popup-input" id="edit-reminder" type="time" value="${task.reminder_time ? new Date(task.reminder_time).toLocaleTimeString('no-NO', {hour:'2-digit', minute:'2-digit', hour12:false}) : ''}" />
         </div>
       </div>
       <div class="popup-actions">
