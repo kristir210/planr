@@ -143,7 +143,7 @@ async function registerPushNotifications () {
 
 async function saveSubscription (subscription) {
   const sub = subscription.toJSON()
-  await fetch('/.netlify/functions/save-subscription', {
+  await fetch('/functions/save-subscription', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ endpoint: sub.endpoint, keys: sub.keys })

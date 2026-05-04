@@ -1,4 +1,4 @@
-const CACHE_NAME = 'planr-v6'
+const CACHE_NAME = 'planr-' + Date.now()
 
 const STATIC_ASSETS = [
   '/',
