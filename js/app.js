@@ -3,6 +3,7 @@ import { loadWorkspaces } from './workspaces.js'
 import { initCalendar } from './calendar.js'
 import { initHabits } from './habits.js'
 import { initSettings } from './settings.js'
+import { supabase } from './supabase.js'
 
 initPanel()
 loadWorkspaces()
@@ -188,7 +189,7 @@ function makeDraggable(container, selector) {
     el.classList.add('drag-over')
   })
 
-  container.addEventListener('drop', e => {
+    container.addEventListener('drop', e => {
     e.preventDefault()
     const el = e.target.closest(selector)
     if (!el || el === dragSrc || !dragSrc) return
@@ -202,6 +203,17 @@ function makeDraggable(container, selector) {
     } else {
       parent.insertBefore(dragSrc, el)
     }
+
+    const table = dragSrc.classList.contains('workspace-item') ? 'workspaces'
+      : dragSrc.classList.contains('folder-item') ? 'folders'
+      : dragSrc.classList.contains('task-row') ? 'tasks'
+      : null
+    if (!table) return
+
+    ;[...parent.children].forEach((item, i) => {
+      const id = item.dataset.id
+      if (id) supabase.from(table).update({ position: i }).eq('id', id).then(() => {})
+    })
   })
 }
 
