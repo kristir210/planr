@@ -162,11 +162,8 @@ setTimeout(registerPushNotifications, 3000)
 // Force bottom nav reflow on PWA launch
 window.addEventListener('load', () => {
   setTimeout(() => {
-    document.body.style.display = 'none'
-    requestAnimationFrame(() => {
-      document.body.style.display = ''
-    })
-  }, 100)
+    window.dispatchEvent(new Event('resize'))
+  }, 300)
 })
 // ── DRAG TO REORDER ───────────────────────────────────
 function makeDraggable(container, selector) {
