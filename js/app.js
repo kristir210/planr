@@ -233,3 +233,11 @@ window.initTaskDrag = function(listEl) {
   listEl.querySelectorAll('.task-row').forEach(el => el.setAttribute('draggable', 'true'))
   makeDraggable(listEl, '.task-row')
 }
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    document.body.style.display = 'none'
+    requestAnimationFrame(() => {
+      document.body.style.display = ''
+    })
+  }, 100)
+})
