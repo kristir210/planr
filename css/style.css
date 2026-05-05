@@ -95,6 +95,8 @@ html, body {
   font-family: inherit;
   cursor: pointer;
   transition: background 0.1s;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .pin-key:hover { background: var(--bg-top); }
