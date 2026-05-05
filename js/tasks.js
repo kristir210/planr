@@ -272,7 +272,7 @@ window.openTaskEdit = async function(taskId) {
         </div>
         <div class="edit-field">
           <label class="edit-label">Reminder time</label>
-          <input class="popup-input" id="edit-reminder" type="time" value="${task.reminder_time ? task.reminder_time.substring(11,16) : ''}" />
+          <input class="popup-input" id="edit-reminder" type="time" value="${task.reminder_time ? new Date(task.reminder_time).toLocaleTimeString('no-NO', {hour:'2-digit', minute:'2-digit', hour12:false}) : ''}" />
         </div>
       </div>
       <div class="popup-actions">
@@ -318,9 +318,16 @@ window.saveTaskEdit = async function(taskId) {
     ? statusBtn.getAttribute('onclick').match(/'([^']+)'/)[1]
     : 'not_started'
 
-  const reminder_time = timeVal
-    ? `${due_date || new Date().toISOString().split('T')[0]}T${timeVal}:00`
-    : null
+  let reminder_time = null
+  if (timeVal) {
+    const baseDate = due_date || new Date().toISOString().split('T')[0]
+    const offset = new Date().getTimezoneOffset()
+    const sign = offset <= 0 ? '+' : '-'
+    const absOffset = Math.abs(offset)
+    const hours = String(Math.floor(absOffset / 60)).padStart(2, '0')
+    const mins = String(absOffset % 60).padStart(2, '0')
+    reminder_time = new Date(`${baseDate}T${timeVal}:00${sign}${hours}:${mins}`).toISOString()
+  }
 
   if (!title) return
 
