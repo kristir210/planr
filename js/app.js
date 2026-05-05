@@ -1,3 +1,9 @@
+const dbg = document.createElement('div')
+dbg.style.cssText = 'position:fixed;top:0;left:0;z-index:9999;background:red;color:white;font-size:16px;padding:4px'
+dbg.id = 'dbg'
+document.body.appendChild(dbg)
+setInterval(() => { dbg.textContent = window.innerWidth + 'x' + window.innerHeight }, 500)
+
 import { initPanel } from './panel.js'
 import { loadWorkspaces } from './workspaces.js'
 import { initCalendar } from './calendar.js'
