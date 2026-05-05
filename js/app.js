@@ -161,9 +161,12 @@ function urlBase64ToUint8Array (base64String) {
 setTimeout(registerPushNotifications, 3000)
 // Force bottom nav reflow on PWA launch
 window.addEventListener('load', () => {
-  setTimeout(() => {
+  let attempts = 0
+  const interval = setInterval(() => {
     window.dispatchEvent(new Event('resize'))
-  }, 300)
+    attempts++
+    if (attempts >= 5) clearInterval(interval)
+  }, 200)
 })
 // ── DRAG TO REORDER ───────────────────────────────────
 function makeDraggable(container, selector) {
