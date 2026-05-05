@@ -3,6 +3,10 @@
 
 /* ── FOLD / TABLET (600–1024px) — same as phone, no sidebar ── */
 @media (max-width: 1024px) {
+    .app {
+    grid-template-columns: 1fr;
+    grid-template-rows: 46px 1fr 56px;
+  }
 
   .topbar { grid-column: 1; }
 
