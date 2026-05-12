@@ -520,7 +520,7 @@ function renderDayView(tasks, events, holidays, habits, completedSet) {
     if (t.due_date !== dateStr) return
     const overdue = new Date(t.due_date) < new Date(new Date().toDateString())
     const colour  = overdue ? '#b05050' : (t.folders?.workspaces?.colour || '#c9a96e')
-    const time    = t.reminder_time ? getLocalTime(t.reminder_time) : null
+    const time = t.reminder_time ? new Date(t.reminder_time).toLocaleTimeString('no-NO', {hour:'2-digit', minute:'2-digit', hour12:false}) : null
     if (time) {
       const startMin = timeToMinutes(time)
       timedItems.push({ type: 'task', id: t.id, title: t.title, colour, startMin, endMin: startMin + 30 })
