@@ -75,7 +75,7 @@ async function loadPanelEvents(today) {
     const ws     = e.folders?.workspaces?.name   || e.workspaces?.name   || ''
     const time   = e.all_day
       ? 'All day'
-      : new Date(e.start_time).toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit' })
+      : e.start_time.substring(11, 16)
 
     return `
       <div class="panel-task-item" style="border-left-color:${colour}40; cursor:pointer;"
