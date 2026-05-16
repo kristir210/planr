@@ -1853,3 +1853,8 @@ html, body {
 .drag-over {
   border-top: 2px solid var(--amber) !important;
 }
+@media (max-width: 1024px) {
+  #bottom-nav {
+    display: flex !important;
+  }
+}
