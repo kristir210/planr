@@ -40,7 +40,7 @@ app.get('/send-reminders', async (_req, res) => {
     const habitsRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/habits?select=*&reminder_time=not.is.null&order=position`, { headers })
     const habits = await habitsRes.json()
 
-    const tasksRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/tasks?select=id,title,reminder_time&done=eq.false&reminder_time=gte.${utcToday}T00:00:00&reminder_time=lte.${utcToday}T23:59:59`, { headers })
+    const tasksRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/tasks?select=id,title,reminder_time&done=eq.false&notify=eq.true&reminder_time=gte.${utcToday}T00:00:00&reminder_time=lte.${utcToday}T23:59:59`, { headers })
     const tasks = await tasksRes.json()
 
     const dayOfWeekMap = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']

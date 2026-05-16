@@ -47,7 +47,6 @@ export async function loadTaskView(folderId) {
     </div>
   `
 
-  // Wire up buttons directly with correct closure values
   document.getElementById('task-add-row').addEventListener('click', () => {
     addTaskInline(folderId, folder.workspaces.id, folder.workspaces.colour)
   })
@@ -56,7 +55,6 @@ export async function loadTaskView(folderId) {
     loadCompletedTasks(folderId)
   })
 
-  // Enable drag to reorder
   setTimeout(() => window.initTaskDrag(document.getElementById('task-list')), 100)
 }
 
@@ -155,8 +153,6 @@ async function saveNewTask(folderId, workspaceId, colour) {
 
   if (!title) return
 
-  console.log('Saving task:', { folderId, workspaceId, title, due_date })
-
   const { data: task, error } = await supabase
     .from('tasks')
     .insert({
@@ -173,8 +169,6 @@ async function saveNewTask(folderId, workspaceId, colour) {
     alert('Save error: ' + JSON.stringify(error))
     return
   }
-
-  console.log('Task saved:', task)
 
   document.getElementById('task-input-row')?.remove()
 
@@ -275,6 +269,15 @@ window.openTaskEdit = async function(taskId) {
           <input class="popup-input" id="edit-reminder" type="time" value="${task.reminder_time ? new Date(task.reminder_time).toLocaleTimeString('no-NO', {hour:'2-digit', minute:'2-digit', hour12:false}) : ''}" />
         </div>
       </div>
+      <div class="edit-field">
+        <label class="edit-label">Push notification</label>
+        <div class="edit-type-row">
+          <button class="edit-type-btn ${task.notify ? 'active' : ''}" id="notify-toggle"
+                  onclick="toggleNotify(this)">
+            ${task.notify ? '🔔 On' : '🔕 Off'}
+          </button>
+        </div>
+      </div>
       <div class="popup-actions">
         <button class="popup-btn popup-btn--danger" onclick="deleteTask('${task.id}')">Delete</button>
         <div style="display:flex;gap:8px;">
@@ -288,6 +291,12 @@ window.openTaskEdit = async function(taskId) {
   document.body.appendChild(modal)
   modal.addEventListener('click', e => { if (e.target === modal) closeTaskEdit() })
   document.getElementById('edit-title').focus()
+}
+
+window.toggleNotify = function(btn) {
+  const isOn = btn.textContent.trim().startsWith('🔔')
+  btn.textContent = isOn ? '🔕 Off' : '🔔 On'
+  btn.classList.toggle('active', !isOn)
 }
 
 window.setTaskType = function(type) {
@@ -318,6 +327,9 @@ window.saveTaskEdit = async function(taskId) {
     ? statusBtn.getAttribute('onclick').match(/'([^']+)'/)[1]
     : 'not_started'
 
+  const notifyBtn = document.getElementById('notify-toggle')
+  const notify    = notifyBtn?.textContent.trim().startsWith('🔔') ?? false
+
   let reminder_time = null
   if (timeVal) {
     const baseDate = due_date || new Date().toISOString().split('T')[0]
@@ -333,7 +345,7 @@ window.saveTaskEdit = async function(taskId) {
 
   await supabase
     .from('tasks')
-    .update({ title, due_date, reminder_time, type, status })
+    .update({ title, due_date, reminder_time, type, status, notify })
     .eq('id', taskId)
 
   closeTaskEdit()
