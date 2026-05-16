@@ -245,11 +245,7 @@ window.initTaskDrag = function(listEl) {
   listEl.querySelectorAll('.task-row').forEach(el => el.setAttribute('draggable', 'true'))
   makeDraggable(listEl, '.task-row')
 }
-function updateLayout() {
-  const isMobile = window.innerWidth <= 1024
-  const nav = document.getElementById('bottom-nav')
-  if (nav) nav.style.display = isMobile ? 'flex' : 'none'
-}
+
 
 window.addEventListener('resize', updateLayout)
 window.addEventListener('load', updateLayout)

@@ -3,9 +3,10 @@
 
 /* ── FOLD / TABLET (600–1024px) — same as phone, no sidebar ── */
 @media (max-width: 1024px) {
-    .app {
+
+  .app {
     grid-template-columns: 1fr;
-    grid-template-rows: 46px 1fr 56px;
+    grid-template-rows: 46px 1fr;
   }
 
   .topbar { grid-column: 1; }
@@ -22,6 +23,7 @@
     grid-column: 1;
     grid-row: 2;
     overflow: hidden;
+    padding-bottom: 56px;
   }
 
   /* Right panel — overlay */
@@ -40,17 +42,20 @@
 
   .panel-tab { display: none; }
 
-  /* Bottom nav */
+  /* Bottom nav — fixed, outside grid */
   .bottom-nav {
     display: flex;
-    grid-column: 1;
-    grid-row: 3;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
     align-items: center;
     justify-content: space-around;
     background: var(--bg-top);
     border-top: 1px solid var(--border);
     padding: 0 4px;
-    z-index: 10;
+    z-index: 100;
   }
 
   .bottom-nav-btn {
@@ -180,6 +185,7 @@
   flex: 1;
   -webkit-overflow-scrolling: touch;
 }
+
 .mobile-ws-item {
   display: flex;
   align-items: center;
@@ -198,6 +204,7 @@
   border-radius: 50%;
   flex-shrink: 0;
 }
+
 .mobile-ws-folder {
   display: flex;
   align-items: center;
@@ -213,6 +220,7 @@
   background: var(--bg-mid); 
   color: var(--text); 
 }
+
 /* ── CUSTOM SCROLLBAR ─────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 6px;

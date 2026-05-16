@@ -73,31 +73,31 @@
       <span>Today</span>
     </div>
 
-    <!-- BOTTOM NAV (mobile only, hidden on desktop via CSS) -->
-    <nav class="bottom-nav" id="bottom-nav">
-      <button class="bottom-nav-btn active" onclick="mobileNav('calendar', this)">
-        <span class="nav-icon">◫</span>
-        <span>Calendar</span>
-      </button>
-      <button class="bottom-nav-btn" onclick="mobileNav('habits', this)">
-        <span class="nav-icon">◉</span>
-        <span>Habits</span>
-      </button>
-      <button class="bottom-nav-btn" onclick="mobileNav('today', this)">
-        <span class="nav-icon">☀</span>
-        <span>Today</span>
-      </button>
-      <button class="bottom-nav-btn" onclick="mobileNav('workspaces', this)">
-        <span class="nav-icon">⊞</span>
-        <span>Spaces</span>
-      </button>
-      <button class="bottom-nav-btn" onclick="mobileNav('settings', this)">
-        <span class="nav-icon">⚙</span>
-        <span>Settings</span>
-      </button>
-    </nav>
-
   </div>
+
+  <!-- BOTTOM NAV — outside .app grid, fixed position -->
+  <nav class="bottom-nav" id="bottom-nav">
+    <button class="bottom-nav-btn active" onclick="mobileNav('calendar', this)">
+      <span class="nav-icon">◫</span>
+      <span>Calendar</span>
+    </button>
+    <button class="bottom-nav-btn" onclick="mobileNav('habits', this)">
+      <span class="nav-icon">◉</span>
+      <span>Habits</span>
+    </button>
+    <button class="bottom-nav-btn" onclick="mobileNav('today', this)">
+      <span class="nav-icon">☀</span>
+      <span>Today</span>
+    </button>
+    <button class="bottom-nav-btn" onclick="mobileNav('workspaces', this)">
+      <span class="nav-icon">⊞</span>
+      <span>Spaces</span>
+    </button>
+    <button class="bottom-nav-btn" onclick="mobileNav('settings', this)">
+      <span class="nav-icon">⚙</span>
+      <span>Settings</span>
+    </button>
+  </nav>
 
   <script type="module" src="js/app.js"></script>
 
