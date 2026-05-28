@@ -189,7 +189,7 @@ function makeDraggable(container, selector) {
     el.classList.add('drag-over')
   })
 
-    container.addEventListener('drop', e => {
+  container.addEventListener('drop', e => {
     e.preventDefault()
     const el = e.target.closest(selector)
     if (!el || el === dragSrc || !dragSrc) return
@@ -219,14 +219,12 @@ function makeDraggable(container, selector) {
 
 // Wire up drag on sidebar elements
 setTimeout(() => {
-  // Workspaces
   const wsList = document.getElementById('workspace-list')
   if (wsList) {
     wsList.querySelectorAll('.workspace-item').forEach(el => el.setAttribute('draggable', 'true'))
     makeDraggable(wsList, '.workspace-item')
   }
 
-  // Folders — observe for dynamic additions
   const observer = new MutationObserver(() => {
     document.querySelectorAll('.folder-item').forEach(el => el.setAttribute('draggable', 'true'))
     document.querySelectorAll('.workspace-body').forEach(body => {
@@ -239,12 +237,12 @@ setTimeout(() => {
   observer.observe(document.querySelector('.sidebar') || document.body, { childList: true, subtree: true })
 }, 500)
 
-// Tasks
 window.initTaskDrag = function(listEl) {
   if (!listEl) return
   listEl.querySelectorAll('.task-row').forEach(el => el.setAttribute('draggable', 'true'))
   makeDraggable(listEl, '.task-row')
 }
+
 window.addEventListener('load', () => {
   setTimeout(() => {
     document.body.style.display = 'none'
@@ -253,3 +251,55 @@ window.addEventListener('load', () => {
     })
   }, 100)
 })
+
+// ── RESIZABLE SIDEBAR ─────────────────────────────────────
+const SIDEBAR_MIN = 160
+const SIDEBAR_MAX = 480
+const SIDEBAR_DEFAULT = 240
+
+function initResizableSidebar() {
+  const sidebar = document.querySelector('.sidebar')
+  if (!sidebar) return
+
+  const savedWidth = sessionStorage.getItem('sidebarWidth')
+  const width = savedWidth ? parseInt(savedWidth) : SIDEBAR_DEFAULT
+  setSidebarWidth(width)
+
+  const handle = document.createElement('div')
+  handle.id = 'sidebar-resize-handle'
+  sidebar.appendChild(handle)
+
+  let dragging = false
+  let startX = 0
+  let startWidth = 0
+
+  handle.addEventListener('mousedown', e => {
+    dragging = true
+    startX = e.clientX
+    startWidth = sidebar.offsetWidth
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    e.preventDefault()
+  })
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return
+    const newWidth = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, startWidth + (e.clientX - startX)))
+    setSidebarWidth(newWidth)
+  })
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return
+    dragging = false
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+    sessionStorage.setItem('sidebarWidth', sidebar.offsetWidth)
+  })
+}
+
+function setSidebarWidth(width) {
+  const app = document.querySelector('.app')
+  if (app) app.style.gridTemplateColumns = `${width}px 1fr auto`
+}
+
+initResizableSidebar()
