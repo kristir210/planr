@@ -1772,7 +1772,17 @@ html, body {
   background: var(--amber);
 }
 
-.bottom-nav { display: none; }
+.bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  z-index: 100;
+  background: var(--bg-top);
+  border-top: 1px solid var(--border);
+}
 
 /* ── SIDEBAR NOTE ITEMS ───────────────────────────────────── */
 .sidebar-note-item {
@@ -1853,18 +1863,4 @@ html, body {
 
 .drag-over {
   border-top: 2px solid var(--amber) !important;
-}
-/* ── SIDEBAR RESIZE HANDLE ────────────────────────────── */
-#sidebar-resize-handle {
-  position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  cursor: col-resize;
-  z-index: 10;
-}
-
-#sidebar-resize-handle:hover {
-  background: var(--amber-dim);
 }

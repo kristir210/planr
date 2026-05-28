@@ -826,8 +826,14 @@ window.openCalAddPopup = async function(dateStr, prefilledTime = '') {
             <input class="popup-input" id="cal-task-date" type="date" value="${dateStr}" />
           </div>
           <div class="edit-field">
-            <label class="edit-label">Reminder time</label>
+            <label class="edit-label">Scheduled time</label>
             <input class="popup-input" id="cal-task-reminder" type="time" value="${prefilledTime}" />
+          </div>
+        </div>
+        <div class="edit-field">
+          <label class="edit-label">Push notification</label>
+          <div class="edit-type-row">
+            <button class="edit-type-btn" id="cal-notify-toggle" onclick="calToggleNotify(this)">🔕 Off</button>
           </div>
         </div>
         <div class="edit-row">
@@ -899,6 +905,12 @@ window.openCalAddPopup = async function(dateStr, prefilledTime = '') {
   document.getElementById('cal-task-title').focus()
 }
 
+window.calToggleNotify = function(btn) {
+  const isOn = btn.textContent.trim().startsWith('🔔')
+  btn.textContent = isOn ? '🔕 Off' : '🔔 On'
+  btn.classList.toggle('active', !isOn)
+}
+
 window.switchCalTab = function(tab) {
   document.getElementById('tab-task').classList.toggle('active', tab === 'task')
   document.getElementById('tab-event').classList.toggle('active', tab === 'event')
@@ -948,6 +960,8 @@ window.saveCalItem = async function(dateStr) {
     const type        = typeBtn?.textContent.trim().toLowerCase() === 'project' ? 'project' : 'simple'
     const statusBtn   = document.querySelector('#cal-task-form .edit-status-btn.active')
     const status      = statusBtn ? statusBtn.getAttribute('onclick').match(/'([^']+)'/)[1] : 'not_started'
+    const notifyBtn   = document.getElementById('cal-notify-toggle')
+    const notify      = notifyBtn?.textContent.trim().startsWith('🔔') ?? false
     if (!title) return
 
     let reminder_time = null
@@ -961,7 +975,7 @@ window.saveCalItem = async function(dateStr) {
     }
 
     await supabase.from('tasks').insert({
-      title, due_date, reminder_time,
+      title, due_date, reminder_time, notify,
       type, status, workspace_id: workspaceId, folder_id: folderId, position: 0
     })
   } else {
