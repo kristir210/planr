@@ -132,6 +132,7 @@ function addTaskInline(folderId, workspaceId, colour) {
 
   const input = document.getElementById('task-title-input')
   input.focus()
+  inputRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
 
   input.addEventListener('keydown', async (e) => {
     if (e.key === 'Enter') {

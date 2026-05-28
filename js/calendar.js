@@ -345,9 +345,9 @@ function renderMultiDayBars(events, gridDates) {
         rowSlots[Math.floor(s/7)][slot] = true
       }
 
-      const dayCells  = grid.querySelectorAll('.cal-cell')
-      const startCell = dayCells[rowStart + Math.floor(rowStart / 7)]
-      const endCell   = dayCells[rowEnd + Math.floor(rowEnd / 7)]
+      const allCells  = grid.querySelectorAll('.cal-cell, .cal-week-num')
+      const startCell = [...allCells].filter(el => el.classList.contains('cal-cell'))[rowStart]
+      const endCell   = [...allCells].filter(el => el.classList.contains('cal-cell'))[rowEnd]
       if (!startCell || !endCell) { idx = rowEnd + 1; continue }
 
       const gridRect  = grid.getBoundingClientRect()
@@ -356,6 +356,7 @@ function renderMultiDayBars(events, gridDates) {
 
       const bar = document.createElement('div')
       bar.className = 'cal-multiday-bar'
+      bar.dataset.eventId = e.id
       bar.style.cssText = `
         left: ${startRect.left - gridRect.left}px;
         top: ${startRect.top - gridRect.top + startRect.height - 22 - slot * 18}px;
@@ -369,6 +370,15 @@ function renderMultiDayBars(events, gridDates) {
       idx = rowEnd + 1
     }
   })
+
+  // Recalculate bar positions on resize
+  const resizeObserver = new ResizeObserver(() => {
+    const bars = grid.querySelectorAll('.cal-multiday-bar')
+    bars.forEach(bar => bar.remove())
+    renderMultiDayBars(events, gridDates)
+    resizeObserver.disconnect()
+  })
+  resizeObserver.observe(grid)
 }
 
 // ── WEEK VIEW ─────────────────────────────────────────────
