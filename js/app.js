@@ -258,6 +258,11 @@ const SIDEBAR_MAX = 480
 const SIDEBAR_DEFAULT = 240
 
 function initResizableSidebar() {
+  if (window.innerWidth <= 1024) {
+    const app = document.querySelector('.app')
+    if (app) app.style.gridTemplateColumns = ''
+    return
+  }
   const sidebar = document.querySelector('.sidebar')
   if (!sidebar) return
 
@@ -298,6 +303,7 @@ function initResizableSidebar() {
 }
 
 function setSidebarWidth(width) {
+  if (window.innerWidth <= 1024) return
   const app = document.querySelector('.app')
   if (app) app.style.gridTemplateColumns = `${width}px 1fr auto`
 }
