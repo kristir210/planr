@@ -31,7 +31,11 @@ async function checkPin() {
     return
   }
 
-  if (pin === data.pin_hash) {
+  const encoder = new TextEncoder()
+  const pinBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(pin))
+  const pinHash = [...new Uint8Array(pinBuffer)].map(b => b.toString(16).padStart(2,'0')).join('')
+
+  if (pinHash === data.pin_hash) {
     sessionStorage.setItem('planr_auth', 'true')
     window.location.href = 'app.html'
   } else {
