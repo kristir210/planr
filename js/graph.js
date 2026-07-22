@@ -86,23 +86,24 @@ function renderGraph(nodes, links, workspaces) {
 
   body.innerHTML = ''
 
-  const d3Script = document.createElement('script')
-  d3Script.src = 'https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js'
-  d3Script.onload = () => buildD3Graph(nodes, links, body)
-  document.head.appendChild(d3Script)
-
   if (window.d3) {
-    buildD3Graph(nodes, links, body)
+    requestAnimationFrame(() => buildD3Graph(nodes, links, body))
     return
   }
+
+  const d3Script = document.createElement('script')
+  d3Script.src = 'https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js'
+  d3Script.onload = () => requestAnimationFrame(() => buildD3Graph(nodes, links, body))
+  document.head.appendChild(d3Script)
 }
 
 function buildD3Graph(nodes, links, body) {
   if (!window.d3) { setTimeout(() => buildD3Graph(nodes, links, body), 100); return }
 
   const d3 = window.d3
-  const w = body.offsetWidth || 800
-  const h = body.offsetHeight || 600
+  const rect = body.getBoundingClientRect()
+  const w = rect.width || 800
+  const h = rect.height || 600
 
   const svg = d3.select(body).append('svg')
     .attr('width', '100%').attr('height', '100%')
@@ -196,7 +197,7 @@ function handleNodeClick(e, d) {
     title.textContent = d.label
     actions.innerHTML = `
       <div class="graph-popup-action" onclick="addNoteFromGraph('${d.rawId}', '${d.workspaceId}', '${d.wsColour}')">+ Add note</div>
-      <div class="graph-popup-action" onclick="openFolderFromGraph('${d.rawId}', '${d.wsColour}')">Open folder</div>
+      <div class="graph-popup-action" onclick="openFolderFromGraph('${d.rawId}')">Open folder</div>
     `
     const graphBody = document.getElementById('graph-body')
     const rect = graphBody.getBoundingClientRect()
@@ -252,11 +253,9 @@ window.addNoteFromGraph = async function(folderId, workspaceId, colour) {
     .select().single()
   if (error) return
   await openNoteFromGraph(note.id, folderId)
-  await initGraphView()
-  setTimeout(() => openNoteFromGraph(note.id, folderId), 100)
 }
 
-window.openFolderFromGraph = async function(folderId, colour) {
+window.openFolderFromGraph = async function(folderId) {
   document.getElementById('graph-node-popup').style.display = 'none'
   const { loadNotesView } = await import('./notes.js')
   loadNotesView(folderId)
