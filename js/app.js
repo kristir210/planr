@@ -4,10 +4,13 @@ import { initCalendar } from './calendar.js'
 import { initHabits } from './habits.js'
 import { initSettings } from './settings.js'
 import { supabase } from './supabase.js'
+import { initGraphView } from './graph.js'
+import { initSearch } from './search.js'
 
 initPanel()
 loadWorkspaces()
 initSettings()
+initSearch()
 
 // ── DEFAULT VIEW: calendar week ───────────────────────────
 document.querySelector('.sidebar-row[data-view="calendar"]')?.classList.add('active')
@@ -25,6 +28,8 @@ document.querySelectorAll('.sidebar-row[data-view]').forEach(row => {
       initCalendar()
     } else if (view === 'habits') {
       initHabits()
+    } else if (view === 'graph') {
+      initGraphView()
     }
   })
 })
@@ -207,6 +212,7 @@ function makeDraggable(container, selector) {
     const table = dragSrc.classList.contains('workspace-item') ? 'workspaces'
       : dragSrc.classList.contains('folder-item') ? 'folders'
       : dragSrc.classList.contains('task-row') ? 'tasks'
+      : dragSrc.classList.contains('sidebar-note-item') ? 'notes'
       : null
     if (!table) return
 
@@ -227,10 +233,20 @@ setTimeout(() => {
 
   const observer = new MutationObserver(() => {
     document.querySelectorAll('.folder-item').forEach(el => el.setAttribute('draggable', 'true'))
+    document.querySelectorAll('.sidebar-note-item').forEach(el => {
+      el.setAttribute('draggable', 'true')
+    })
     document.querySelectorAll('.workspace-body').forEach(body => {
       if (!body.dataset.dragInit) {
         body.dataset.dragInit = '1'
         makeDraggable(body, '.folder-item')
+        makeDraggable(body, '.sidebar-note-item')
+      }
+    })
+    document.querySelectorAll('.folder-body').forEach(body => {
+      if (!body.dataset.noteDragInit) {
+        body.dataset.noteDragInit = '1'
+        makeDraggable(body, '.sidebar-note-item')
       }
     })
   })

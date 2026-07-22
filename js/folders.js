@@ -66,7 +66,6 @@ function buildFolderEl(folder, workspaceId, colour, depth) {
       </div>
     `
   } else {
-    // Notes folder — expands to show subfolders + individual notes
     folderEl.innerHTML = `
       <div class="folder-row folder-row--notes"
            oncontextmenu="showFolderMenu(event, '${folder.id}', '${workspaceId}', '${colour}', 'notes', null)">
@@ -76,7 +75,6 @@ function buildFolderEl(folder, workspaceId, colour, depth) {
       </div>
       <div class="folder-body" id="fb-${folder.id}" style="display:none;"></div>
     `
-    // Clicking anywhere on the row toggles the folder
     folderEl.querySelector('.folder-row').addEventListener('click', () => {
       toggleFolder(folder.id, workspaceId, colour, depth)
     })
@@ -115,7 +113,6 @@ async function refreshFolderBody(folderId, workspaceId, colour, depth, body) {
   const nextDepth = depth + 1
   const indent = nextDepth * 12
 
-  // Load subfolders and notes in parallel
   const [{ data: subFolders }, { data: notes }] = await Promise.all([
     supabase.from('folders').select('*').eq('parent_id', folderId).order('position'),
     supabase.from('notes').select('id, title').eq('folder_id', folderId).order('position')
@@ -123,7 +120,6 @@ async function refreshFolderBody(folderId, workspaceId, colour, depth, body) {
 
   body.innerHTML = ''
 
-  // Render subfolders first
   if (subFolders?.length > 0) {
     subFolders.forEach(sub => {
       const subEl = document.createElement('div')
@@ -146,12 +142,12 @@ async function refreshFolderBody(folderId, workspaceId, colour, depth, body) {
     })
   }
 
-  // Render individual notes
   if (notes?.length > 0) {
     notes.forEach(note => {
       const noteEl = document.createElement('div')
       noteEl.className = 'sidebar-note-item'
       noteEl.id = 'sni-' + note.id
+      noteEl.dataset.id = note.id
       noteEl.style.paddingLeft = `${indent + 4}px`
       noteEl.textContent = note.title || 'Untitled'
       noteEl.title = note.title || 'Untitled'
@@ -165,7 +161,6 @@ async function refreshFolderBody(folderId, workspaceId, colour, depth, body) {
     })
   }
 
-  // Add note button at bottom
   const addNoteBtn = document.createElement('div')
   addNoteBtn.className = 'sidebar-add-folder'
   addNoteBtn.style.paddingLeft = `${indent}px`
@@ -223,14 +218,11 @@ async function createNoteInFolder(folderId, workspaceId, colour, depth, body) {
 
   if (error) { console.error(error); return }
 
-  // Refresh folder body to show new note
   body.innerHTML = ''
   await refreshFolderBody(folderId, workspaceId, colour, depth, body)
 
-  // Open the new note
   openNoteInEditor(note.id, folderId, colour)
 
-  // Highlight it in sidebar
   setTimeout(() => {
     const el = document.getElementById('sni-' + note.id)
     if (el) {
@@ -386,7 +378,6 @@ window.openMoveFolderModal = async function(folderId, workspaceId, colour) {
   closeContextMenu()
   document.getElementById('move-folder-modal')?.remove()
 
-  // Load all notes folders in this workspace except the folder itself
   const { data: folders } = await supabase
     .from('folders')
     .select('id, name, parent_id')
@@ -395,7 +386,6 @@ window.openMoveFolderModal = async function(folderId, workspaceId, colour) {
     .neq('id', folderId)
     .order('name')
 
-  // Also offer "top level" as a destination
   const options = folders || []
 
   const modal = document.createElement('div')
@@ -432,16 +422,15 @@ window.moveFolderTo = async function(folderId, newParentId, workspaceId, colour)
     .update({ parent_id: newParentId || null })
     .eq('id', folderId)
 
-  // Reload the whole workspace sidebar to reflect the move
   const body = document.getElementById('wb-' + workspaceId)
   if (body) {
     body.innerHTML = ''
     await loadFolders(workspaceId, colour)
-    // Re-expand the workspace
     const wsBody = document.getElementById('wb-' + workspaceId)
     if (wsBody) wsBody.style.display = 'block'
   }
 }
+
 window.renameNote = async function(noteId) {
   document.getElementById('context-menu')?.remove()
   const { data: note } = await supabase.from('notes').select('title').eq('id', noteId).single()

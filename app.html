@@ -20,6 +20,20 @@
     }
   </script>
 
+  <!-- SEARCH OVERLAY -->
+  <div id="search-overlay" class="search-overlay">
+    <div class="search-box">
+      <div class="search-input-row">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search-input" class="search-input" placeholder="Search notes..." autocomplete="off" />
+        <span class="search-shortcut">esc</span>
+      </div>
+      <div id="search-results" class="search-results">
+        <div class="search-empty">Type to search your notes...</div>
+      </div>
+    </div>
+  </div>
+
   <div class="app">
 
     <!-- TOPBAR -->
@@ -31,6 +45,7 @@
         <button class="topbar-btn" data-view="day">Day</button>
       </div>
       <div class="topbar-right">
+        <button class="topbar-btn" id="search-btn" title="Search notes (Ctrl+K)">🔍 Search</button>
         <button class="topbar-btn" id="panel-toggle">Panel</button>
         <span class="topbar-badge" id="notif-badge"></span>
       </div>
@@ -42,6 +57,7 @@
         <div class="sidebar-label">Views</div>
         <div class="sidebar-row active" data-view="calendar">◫ Calendar</div>
         <div class="sidebar-row" data-view="habits">◉ Habits</div>
+        <div class="sidebar-row" data-view="graph">◈ Graph</div>
       </div>
       <div class="sidebar-divider"></div>
       <div class="sidebar-workspaces">
