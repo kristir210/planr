@@ -172,7 +172,6 @@ async function refreshFolderBody(folderId, workspaceId, colour, depth, body) {
 // ── OPEN NOTE IN EDITOR ───────────────────────────────────
 async function openNoteInEditor(noteId, folderId, colour) {
   const { data: note } = await supabase.from('notes').select('*').eq('id', noteId).single()
-  const { data: folder } = await supabase.from('folders').select('name').eq('id', folderId).single()
 
   window.currentNoteId = noteId
   window.currentFolderId = folderId
@@ -261,7 +260,74 @@ window.showNoteMenu = function(e, noteId, folderId) {
   }, 0)
 }
 
-// ── CONTEXT MENU (folders) ────────────────────────────────
+// ── MOVE NOTE MODAL ───────────────────────────────────────
+window.openMoveNoteModal = async function(noteId, currentFolderId) {
+  document.getElementById('context-menu')?.remove()
+  document.getElementById('move-note-modal')?.remove()
+
+  const [{ data: workspaces }, { data: folders }] = await Promise.all([
+    supabase.from('workspaces').select('id, name, colour').order('position'),
+    supabase.from('folders').select('id, name, workspace_id, parent_id').eq('type', 'notes').order('position')
+  ])
+
+  function buildTree(parentId, wsId, depth) {
+    return (folders || [])
+      .filter(f => f.workspace_id === wsId && f.parent_id === (parentId || null))
+      .map(f => `
+        <div class="move-folder-option ${f.id === currentFolderId ? 'move-folder-option--current' : ''}"
+             style="padding-left:${16 + depth * 14}px"
+             onclick="moveNoteTo('${noteId}', '${f.id}')">
+          📁 ${f.name}
+          ${f.id === currentFolderId ? '<span style="font-size:10px;color:var(--text-dim);margin-left:6px;">current</span>' : ''}
+        </div>
+        ${buildTree(f.id, wsId, depth + 1)}
+      `).join('')
+  }
+
+  const treeHtml = (workspaces || []).map(ws => {
+    const wsfolders = buildTree(null, ws.id, 0)
+    if (!wsfolders.trim()) return ''
+    return `
+      <div class="move-ws-group">
+        <div class="move-ws-label" style="border-left:3px solid ${ws.colour}">
+          ${ws.name}
+        </div>
+        ${wsfolders}
+      </div>
+    `
+  }).join('')
+
+  const modal = document.createElement('div')
+  modal.id = 'move-note-modal'
+  modal.className = 'popup'
+  modal.innerHTML = `
+    <div class="popup-box popup-box--wide">
+      <div class="popup-header">
+        <div class="popup-title">Move to...</div>
+        <button class="popup-close" onclick="document.getElementById('move-note-modal')?.remove()">✕</button>
+      </div>
+      <div class="move-tree">${treeHtml || '<div class="search-empty">No folders found</div>'}</div>
+    </div>
+  `
+  document.body.appendChild(modal)
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove() })
+}
+
+window.moveNoteTo = async function(noteId, folderId) {
+  document.getElementById('move-note-modal')?.remove()
+  await supabase.from('notes').update({ folder_id: folderId }).eq('id', noteId)
+
+  const el = document.getElementById('sni-' + noteId)
+  if (el) el.remove()
+
+  if (window.currentNoteId === noteId) {
+    document.getElementById('main-content').innerHTML =
+      '<div class="main-placeholder">Note moved — select it from its new folder</div>'
+    window.currentNoteId = null
+  }
+}
+
+// ── FOLDER CONTEXT MENU ───────────────────────────────────
 function closeContextMenu() {
   document.getElementById('context-menu')?.remove()
 }
@@ -378,56 +444,60 @@ window.openMoveFolderModal = async function(folderId, workspaceId, colour) {
   closeContextMenu()
   document.getElementById('move-folder-modal')?.remove()
 
-  const { data: folders } = await supabase
-    .from('folders')
-    .select('id, name, parent_id')
-    .eq('workspace_id', workspaceId)
-    .eq('type', 'notes')
-    .neq('id', folderId)
-    .order('name')
+  const [{ data: workspaces }, { data: folders }] = await Promise.all([
+    supabase.from('workspaces').select('id, name, colour').order('position'),
+    supabase.from('folders').select('id, name, workspace_id, parent_id').eq('type', 'notes').neq('id', folderId).order('position')
+  ])
 
-  const options = folders || []
+  function buildTree(parentId, wsId, depth) {
+    return (folders || [])
+      .filter(f => f.workspace_id === wsId && f.parent_id === (parentId || null))
+      .map(f => `
+        <div class="move-folder-option" style="padding-left:${16 + depth * 14}px"
+             onclick="moveFolderTo('${folderId}', '${f.id}', '${workspaceId}', '${colour}')">
+          📁 ${f.name}
+        </div>
+        ${buildTree(f.id, wsId, depth + 1)}
+      `).join('')
+  }
+
+  const treeHtml = (workspaces || []).map(ws => {
+    const wsfolders = buildTree(null, ws.id, 0)
+    return `
+      <div class="move-ws-group">
+        <div class="move-ws-label" style="border-left:3px solid ${ws.colour}">${ws.name}</div>
+        <div class="move-folder-option" style="padding-left:16px"
+             onclick="moveFolderTo('${folderId}', null, '${ws.id}', '${colour}')">
+          📂 Top level
+        </div>
+        ${wsfolders}
+      </div>
+    `
+  }).join('')
 
   const modal = document.createElement('div')
   modal.id = 'move-folder-modal'
   modal.className = 'popup'
   modal.innerHTML = `
-    <div class="popup-box">
+    <div class="popup-box popup-box--wide">
       <div class="popup-header">
         <div class="popup-title">Move to...</div>
         <button class="popup-close" onclick="document.getElementById('move-folder-modal')?.remove()">✕</button>
       </div>
-      <div style="display:flex;flex-direction:column;gap:4px;max-height:260px;overflow-y:auto;margin-top:8px;">
-        <div class="move-folder-option" onclick="moveFolderTo('${folderId}', null, '${workspaceId}', '${colour}')">
-          <span style="opacity:.5">📂</span> Top level
-        </div>
-        ${options.map(f => `
-          <div class="move-folder-option" onclick="moveFolderTo('${folderId}', '${f.id}', '${workspaceId}', '${colour}')">
-            📁 ${f.name}
-          </div>
-        `).join('')}
-      </div>
+      <div class="move-tree">${treeHtml || '<div class="search-empty">No folders found</div>'}</div>
     </div>
   `
-
   document.body.appendChild(modal)
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove() })
 }
 
 window.moveFolderTo = async function(folderId, newParentId, workspaceId, colour) {
   document.getElementById('move-folder-modal')?.remove()
-
-  await supabase
-    .from('folders')
-    .update({ parent_id: newParentId || null })
-    .eq('id', folderId)
-
+  await supabase.from('folders').update({ parent_id: newParentId || null, workspace_id: workspaceId }).eq('id', folderId)
   const body = document.getElementById('wb-' + workspaceId)
   if (body) {
     body.innerHTML = ''
     await loadFolders(workspaceId, colour)
-    const wsBody = document.getElementById('wb-' + workspaceId)
-    if (wsBody) wsBody.style.display = 'block'
   }
 }
 
