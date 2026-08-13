@@ -2089,3 +2089,12 @@ html, body {
   overflow-y: auto;
   padding: 6px 4px;
 }
+.notes-body a {
+  color: var(--amber);
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+.notes-body a:hover {
+  opacity: 0.8;
+}
