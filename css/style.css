@@ -2098,3 +2098,26 @@ html, body {
 .notes-body a:hover {
   opacity: 0.8;
 }
+.notes-edit-hint {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.notes-editor-topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.notes-body a {
+  color: var(--amber);
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+.notes-body a:hover {
+  opacity: 0.8;
+}

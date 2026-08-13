@@ -1,6 +1,7 @@
 import { supabase } from './supabase.js'
 
 let saveTimeout = null
+let isEditing = false
 
 export async function loadNotesView(folderId) {
   const { data: folder } = await supabase
@@ -87,76 +88,83 @@ window.openNote = async function(noteId, folderId) {
     .single()
 
   window.currentNoteId = noteId
+  isEditing = false
 
   document.querySelectorAll('.notes-list-item').forEach(el => el.classList.remove('active'))
   document.querySelector(`.notes-list-item[data-id="${noteId}"]`)?.classList.add('active')
 
+  const editorHTML = buildEditorHTML(note, false)
+
   const editor = document.getElementById('notes-editor')
   if (editor) {
-    editor.innerHTML = `
-      <div class="notes-editor-inner">
+    editor.innerHTML = editorHTML
+  } else {
+    const main = document.getElementById('main-content')
+    main.innerHTML = `<div class="notes-editor-standalone">${editorHTML}</div>`
+  }
+
+  initNoteEditor(note)
+}
+
+function buildEditorHTML(note, editing) {
+  return `
+    <div class="notes-editor-inner">
+      <div class="notes-editor-topbar">
         <input class="notes-title-input" id="note-title-input"
                value="${note.title || ''}"
                placeholder="Untitled"
-               oninput="scheduleNoteSave()" />
-        <div class="notes-toolbar">
-          <button onclick="fmt('bold')" title="Bold"><b>B</b></button>
-          <button onclick="fmt('italic')" title="Italic"><i>I</i></button>
-          <button onclick="fmt('underline')" title="Underline"><u>U</u></button>
-          <div class="notes-toolbar-divider"></div>
-          <button onclick="fmt('insertUnorderedList')" title="Bullet list">≡</button>
-          <button onclick="fmt('insertOrderedList')" title="Numbered list">1.</button>
-          <div class="notes-toolbar-divider"></div>
-          <button onclick="fmtBlock('h2')" title="Heading">H</button>
-          <button onclick="fmtBlock('p')" title="Paragraph">¶</button>
-        </div>
-        <div class="notes-body"
-             id="note-body"
-             contenteditable="true"
-             oninput="scheduleNoteSave()">${note.body || ''}</div>
-        <div class="notes-save-indicator" id="save-indicator"></div>
+               oninput="scheduleNoteSave()"
+               ${editing ? '' : 'readonly'} />
+        <span class="notes-edit-hint" id="notes-edit-hint" style="${editing ? 'display:none' : ''}">Double-click to edit</span>
       </div>
-    `
-  } else {
-    const main = document.getElementById('main-content')
-    main.innerHTML = `
-      <div class="notes-editor-standalone">
-        <div class="notes-editor-inner">
-          <input class="notes-title-input" id="note-title-input"
-                 value="${note.title || ''}"
-                 placeholder="Untitled"
-                 oninput="scheduleNoteSave()" />
-          <div class="notes-toolbar">
-            <button onclick="fmt('bold')" title="Bold"><b>B</b></button>
-            <button onclick="fmt('italic')" title="Italic"><i>I</i></button>
-            <button onclick="fmt('underline')" title="Underline"><u>U</u></button>
-            <div class="notes-toolbar-divider"></div>
-            <button onclick="fmt('insertUnorderedList')" title="Bullet list">≡</button>
-            <button onclick="fmt('insertOrderedList')" title="Numbered list">1.</button>
-            <div class="notes-toolbar-divider"></div>
-            <button onclick="fmtBlock('h2')" title="Heading">H</button>
-            <button onclick="fmtBlock('p')" title="Paragraph">¶</button>
-          </div>
-          <div class="notes-body"
-               id="note-body"
-               contenteditable="true"
-               oninput="scheduleNoteSave()">${note.body || ''}</div>
-          <div class="notes-save-indicator" id="save-indicator"></div>
-        </div>
+      <div class="notes-toolbar" id="notes-toolbar" style="${editing ? '' : 'display:none'}">
+        <button onclick="fmt('bold')" title="Bold"><b>B</b></button>
+        <button onclick="fmt('italic')" title="Italic"><i>I</i></button>
+        <button onclick="fmt('underline')" title="Underline"><u>U</u></button>
+        <div class="notes-toolbar-divider"></div>
+        <button onclick="fmt('insertUnorderedList')" title="Bullet list">≡</button>
+        <button onclick="fmt('insertOrderedList')" title="Numbered list">1.</button>
+        <div class="notes-toolbar-divider"></div>
+        <button onclick="fmtBlock('h2')" title="Heading">H</button>
+        <button onclick="fmtBlock('p')" title="Paragraph">¶</button>
+        <div class="notes-toolbar-divider"></div>
+        <button onclick="exitEditMode()" style="margin-left:auto;font-size:11px;color:var(--text-dim);">Done</button>
       </div>
-    `
-  }
-
-  initNoteEditor()
-  document.getElementById('note-body')?.focus()
+      <div class="notes-body"
+           id="note-body"
+           contenteditable="false"
+           >${note.body || ''}</div>
+      <div class="notes-save-indicator" id="save-indicator"></div>
+    </div>
+  `
 }
 
-function initNoteEditor() {
+function initNoteEditor(note) {
   const body = document.getElementById('note-body')
+  const titleInput = document.getElementById('note-title-input')
   if (!body) return
+
+  // Single click on link — open it
+  body.addEventListener('click', e => {
+    const link = e.target.closest('a')
+    if (link && !isEditing) {
+      e.preventDefault()
+      window.open(link.href, '_blank', 'noopener,noreferrer')
+    }
+  })
+
+  // Double click anywhere — enter edit mode
+  body.addEventListener('dblclick', () => {
+    enterEditMode(body, titleInput)
+  })
+
+  titleInput?.addEventListener('dblclick', () => {
+    enterEditMode(body, titleInput)
+  })
 
   // Auto-link pasted URLs
   body.addEventListener('paste', e => {
+    if (!isEditing) return
     const text = e.clipboardData?.getData('text/plain') || ''
     const urlRegex = /https?:\/\/[^\s]+/g
     if (!urlRegex.test(text)) return
@@ -168,15 +176,27 @@ function initNoteEditor() {
     document.execCommand('insertHTML', false, linked)
     scheduleNoteSave()
   })
+}
 
-  // Make links clickable inside contenteditable
-  body.addEventListener('click', e => {
-    const link = e.target.closest('a')
-    if (link) {
-      e.preventDefault()
-      window.open(link.href, '_blank', 'noopener,noreferrer')
-    }
-  })
+function enterEditMode(body, titleInput) {
+  if (isEditing) return
+  isEditing = true
+  body.contentEditable = 'true'
+  body.focus()
+  if (titleInput) titleInput.removeAttribute('readonly')
+  document.getElementById('notes-toolbar').style.display = ''
+  document.getElementById('notes-edit-hint').style.display = 'none'
+}
+
+window.exitEditMode = function() {
+  isEditing = false
+  const body = document.getElementById('note-body')
+  const titleInput = document.getElementById('note-title-input')
+  if (body) body.contentEditable = 'false'
+  if (titleInput) titleInput.setAttribute('readonly', true)
+  document.getElementById('notes-toolbar').style.display = 'none'
+  document.getElementById('notes-edit-hint').style.display = ''
+  saveNote()
 }
 
 window.scheduleNoteSave = function() {
