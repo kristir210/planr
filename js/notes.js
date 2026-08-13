@@ -168,6 +168,15 @@ function initNoteEditor() {
     document.execCommand('insertHTML', false, linked)
     scheduleNoteSave()
   })
+
+  // Make links clickable inside contenteditable
+  body.addEventListener('click', e => {
+    const link = e.target.closest('a')
+    if (link) {
+      e.preventDefault()
+      window.open(link.href, '_blank', 'noopener,noreferrer')
+    }
+  })
 }
 
 window.scheduleNoteSave = function() {
@@ -198,12 +207,6 @@ async function saveNote() {
 
   const sidebarItem = document.getElementById('sni-' + noteId)
   if (sidebarItem) sidebarItem.textContent = title || 'Untitled'
-
-  const titleInput = document.getElementById('note-title-input')
-  if (titleInput && window.currentNoteId === noteId) {
-    const noteTitle = document.querySelector(`.notes-list-item[data-id="${noteId}"]`)
-    if (noteTitle) noteTitle.textContent = title || 'Untitled'
-  }
 }
 
 window.fmt = function(cmd) {
