@@ -166,7 +166,7 @@ function urlBase64ToUint8Array (base64String) {
 
 setTimeout(registerPushNotifications, 3000)
 
-// ── DRAG TO REORDER ───────────────────────────────────
+// ── DRAG TO REORDER ───────────────────────────────────────
 function makeDraggable(container, selector) {
   let dragSrc = null
 

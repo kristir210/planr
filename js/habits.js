@@ -1,18 +1,15 @@
 import { supabase } from './supabase.js'
 
-const DAY_NAMES  = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
-const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-
-// ── INIT HABITS ───────────────────────────────────────────
 export async function initHabits() {
-  const main  = document.getElementById('main-content')
-  const today = new Date().toISOString().split('T')[0]
-
+  const main = document.getElementById('main-content')
   main.innerHTML = `
-    <div class="habits-view">
+    <div class="habits-view" id="habits-view">
       <div class="habits-header">
-        <h2 class="habits-title">Habits</h2>
-        <button class="habits-add-btn" onclick="openHabitModal()">+ New habit</button>
+        <div>
+          <div class="habits-title">Daily</div>
+          <div class="habits-date" id="habits-date"></div>
+        </div>
+        <button class="habits-manage-btn" onclick="showManageHabits()">Manage habits</button>
       </div>
       <div class="habits-body" id="habits-body">
         <div class="habits-loading">Loading...</div>
@@ -20,432 +17,323 @@ export async function initHabits() {
     </div>
   `
 
-  loadHabits(today)
+  const now = new Date()
+  document.getElementById('habits-date').textContent = now.toLocaleDateString('en-GB', {
+    weekday: 'long', day: 'numeric', month: 'long'
+  })
+
+  await loadDailyView()
 }
 
-// ── LOAD HABITS ───────────────────────────────────────────
-async function loadHabits(today) {
-  const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase()
+async function loadDailyView() {
+  const pad = n => String(n).padStart(2, '0')
+  const now = new Date()
+  const norwayNow = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Oslo' }))
+  const todayNorway = `${norwayNow.getFullYear()}-${pad(norwayNow.getMonth()+1)}-${pad(norwayNow.getDate())}`
+  const dayOfWeekMap = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+  const dow = dayOfWeekMap[norwayNow.getDay()]
 
-  const { data: habits } = await supabase
-    .from('habits')
-    .select('*')
-    .order('position')
+  const [habitsRes, completionsRes, tasksRes, workspacesRes] = await Promise.all([
+    supabase.from('habits').select('*').order('position'),
+    supabase.from('habit_completions').select('habit_id').eq('completed_date', todayNorway),
+    supabase.from('tasks').select('*, workspaces(id, name, colour)').eq('due_date', todayNorway).eq('done', false).order('reminder_time'),
+    supabase.from('workspaces').select('id, name, colour').order('position')
+  ])
 
-  const { data: completions } = await supabase
-    .from('habit_completions')
-    .select('habit_id')
-    .eq('completed_date', today)
+  const habits = habitsRes.data || []
+  const completedIds = new Set((completionsRes.data || []).map(c => c.habit_id))
+  const allTasks = tasksRes.data || []
+  const workspaces = workspacesRes.data || []
 
-  const completedIds = new Set((completions || []).map(c => c.habit_id))
+  // Filter habits scheduled for today
+  const todayHabits = habits.filter(h => isScheduledToday(h.frequency, dow, norwayNow))
 
   const body = document.getElementById('habits-body')
   if (!body) return
 
-  if (!habits || habits.length === 0) {
-    body.innerHTML = `
-      <div class="habits-empty">
-        <p>No habits yet.</p>
-        <p>Click <strong>+ New habit</strong> to get started.</p>
-      </div>
-    `
-    return
+  // ── Habits section ────────────────────────────────────────
+  let html = `<div class="daily-section-label">Habits</div>`
+
+  if (todayHabits.length === 0) {
+    html += `<div class="daily-empty">No habits scheduled for today</div>`
+  } else {
+    todayHabits.forEach(habit => {
+      const done = completedIds.has(habit.id)
+      const time = habit.reminder_time ? habit.reminder_time.substring(0, 5) : ''
+      html += `
+        <div class="daily-item ${done ? 'daily-item--done' : ''}" onclick="toggleHabitToday('${habit.id}', ${done}, '${todayNorway}', this)">
+          <div class="daily-check daily-check--circle ${done ? 'daily-check--checked' : ''}">
+            ${done ? '✓' : ''}
+          </div>
+          <span class="daily-item-title">${habit.name}</span>
+          ${time ? `<span class="daily-item-time">${time}</span>` : ''}
+        </div>
+      `
+    })
   }
 
-  const todayHabits = habits.filter(h => isScheduledToday(h.frequency, today, dayOfWeek))
-  const otherHabits = habits.filter(h => !isScheduledToday(h.frequency, today, dayOfWeek))
+  // ── Tasks section ─────────────────────────────────────────
+  html += `<div class="daily-section-label daily-section-label--tasks">Due today</div>`
 
-  let html = ''
+  if (allTasks.length === 0) {
+    html += `<div class="daily-empty">No tasks due today</div>`
+  } else {
+    // Group by workspace
+    const grouped = {}
+    allTasks.forEach(t => {
+      const wsId = t.workspaces?.id || 'none'
+      if (!grouped[wsId]) grouped[wsId] = { name: t.workspaces?.name || 'No workspace', colour: t.workspaces?.colour || '#7a6e58', tasks: [] }
+      grouped[wsId].tasks.push(t)
+    })
 
-  if (todayHabits.length > 0) {
-    html += `<div class="habits-section-title">Today</div>`
-    html += todayHabits.map(h => renderHabitRow(h, completedIds.has(h.id), true)).join('')
-  }
-
-  if (otherHabits.length > 0) {
-    html += `<div class="habits-section-title" style="margin-top:20px;">Other habits</div>`
-    html += otherHabits.map(h => renderHabitRow(h, false, false)).join('')
+    Object.values(grouped).forEach(group => {
+      html += `
+        <div class="daily-ws-label" style="border-left-color:${group.colour};color:${group.colour}">
+          ${group.name}
+        </div>
+      `
+      group.tasks.forEach(task => {
+        const overdue = new Date(task.due_date) < new Date(new Date().toDateString())
+        const colour = overdue ? '#b05050' : group.colour
+        const time = task.reminder_time
+          ? new Date(task.reminder_time).toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit', hour12: false })
+          : ''
+        html += `
+          <div class="daily-item" onclick="toggleTaskToday('${task.id}', this)">
+            <div class="daily-check daily-check--square" style="border-color:${colour}">
+            </div>
+            <span class="daily-item-title" style="color:${overdue ? colour : ''}">${task.title}</span>
+            ${time ? `<span class="daily-item-time" style="color:${overdue ? colour : ''}">${time}</span>` : ''}
+            ${overdue ? `<span class="daily-overdue-badge">⚠</span>` : ''}
+          </div>
+        `
+      })
+    })
   }
 
   body.innerHTML = html
 }
 
-// ── FREQUENCY LOGIC ───────────────────────────────────────
-function isScheduledToday(frequency, today, dayOfWeek) {
-  if (!frequency) return false
+// ── TOGGLE HABIT ──────────────────────────────────────────
+window.toggleHabitToday = async function(habitId, currentDone, todayDate, el) {
+  if (currentDone) {
+    await supabase.from('habit_completions').delete()
+      .eq('habit_id', habitId).eq('completed_date', todayDate)
+  } else {
+    await supabase.from('habit_completions').insert({ habit_id: habitId, completed_date: todayDate })
+  }
 
-  // Weekly: daily / weekdays / weekends / specific days
-  if (frequency === 'daily') return true
-  if (frequency === 'weekdays') return !['sat', 'sun'].includes(dayOfWeek)
-  if (frequency === 'weekends') return ['sat', 'sun'].includes(dayOfWeek)
+  const check = el.querySelector('.daily-check')
+  const title = el.querySelector('.daily-item-title')
+  const nowDone = !currentDone
 
-  // Every X days: "interval:14:2024-01-01" (interval, start date)
-  if (frequency.startsWith('interval:')) {
-    const parts = frequency.split(':')
-    const days  = parseInt(parts[1])
+  if (nowDone) {
+    el.classList.add('daily-item--done')
+    check.classList.add('daily-check--checked')
+    check.textContent = '✓'
+  } else {
+    el.classList.remove('daily-item--done')
+    check.classList.remove('daily-check--checked')
+    check.textContent = ''
+  }
+
+  el.onclick = () => toggleHabitToday(habitId, nowDone, todayDate, el)
+}
+
+// ── TOGGLE TASK ───────────────────────────────────────────
+window.toggleTaskToday = async function(taskId, el) {
+  await supabase.from('tasks').update({ done: true, completed_at: new Date().toISOString() }).eq('id', taskId)
+
+  el.style.transition = 'opacity 0.3s'
+  el.style.opacity = '0'
+  setTimeout(() => el.remove(), 300)
+}
+
+// ── HABIT FREQUENCY CHECK ─────────────────────────────────
+function isScheduledToday(freq, dow, d) {
+  if (freq === 'daily') return true
+  if (freq === 'weekdays') return !['sat', 'sun'].includes(dow)
+  if (freq === 'weekends') return ['sat', 'sun'].includes(dow)
+  if (freq.startsWith('interval:')) {
+    const parts = freq.split(':')
+    const days = parseInt(parts[1])
     const start = parts[2] ? new Date(parts[2]) : new Date()
-    const now   = new Date(today)
-    const diff  = Math.round((now - start) / (1000 * 60 * 60 * 24))
+    const diff = Math.round((d - start) / (1000 * 60 * 60 * 24))
     return diff >= 0 && diff % days === 0
   }
-
-  // Monthly on specific day: "monthly:15" (15th of every month)
-  if (frequency.startsWith('monthly:')) {
-    const dayOfMonth = parseInt(frequency.split(':')[1])
-    return new Date(today).getDate() === dayOfMonth
-  }
-
-  // Yearly on specific date: "yearly:03-15" (15th March every year)
-  if (frequency.startsWith('yearly:')) {
-    const mmdd = frequency.split(':')[1] // "03-15"
-    const [month, day] = mmdd.split('-').map(Number)
-    const d = new Date(today)
+  if (freq.startsWith('monthly:')) return d.getDate() === parseInt(freq.split(':')[1])
+  if (freq.startsWith('yearly:')) {
+    const [month, day] = freq.split(':')[1].split('-').map(Number)
     return d.getMonth() + 1 === month && d.getDate() === day
   }
-
-  // Legacy: comma-separated days
-  return frequency.split(',').includes(dayOfWeek)
+  return freq.split(',').includes(dow)
 }
 
-function getFreqLabel(frequency) {
-  if (!frequency) return ''
-  if (frequency === 'daily') return 'Every day'
-  if (frequency === 'weekdays') return 'Weekdays'
-  if (frequency === 'weekends') return 'Weekends'
+// ── MANAGE HABITS ─────────────────────────────────────────
+window.showManageHabits = async function() {
+  const { data: habits } = await supabase.from('habits').select('*').order('position')
 
-  if (frequency.startsWith('interval:')) {
-    const parts = frequency.split(':')
-    const days = parseInt(parts[1])
-    if (days === 1) return 'Every day'
-    if (days === 7) return 'Every week'
-    if (days === 14) return 'Every 2 weeks'
-    if (days === 30) return 'Every month'
-    return `Every ${days} days`
-  }
-
-  if (frequency.startsWith('monthly:')) {
-    const day = parseInt(frequency.split(':')[1])
-    return `Monthly on the ${ordinal(day)}`
-  }
-
-  if (frequency.startsWith('yearly:')) {
-    const [month, day] = frequency.split(':')[1].split('-').map(Number)
-    const monthName = new Date(2000, month - 1).toLocaleString('en-US', { month: 'long' })
-    return `Yearly on ${monthName} ${ordinal(day)}`
-  }
-
-  const days = frequency.split(',')
-  if (days.length === 7) return 'Every day'
-  return days.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')
-}
-
-function ordinal(n) {
-  const s = ['th','st','nd','rd']
-  const v = n % 100
-  return n + (s[(v-20)%10] || s[v] || s[0])
-}
-
-function renderHabitRow(habit, isDone, isToday) {
-  const today = new Date().toISOString().split('T')[0]
-  const freqLabel = getFreqLabel(habit.frequency)
-
-  return `
-    <div class="habit-row ${isDone ? 'habit-row--done' : ''}" id="hr-${habit.id}">
-      <div class="habit-check ${isDone ? 'done' : ''} ${!isToday ? 'disabled' : ''}"
-           onclick="${isToday ? `toggleHabit('${habit.id}', '${today}')` : ''}">
-        ${isDone ? '✓' : ''}
-      </div>
-      <div class="habit-info">
-        <div class="habit-name ${isDone ? 'done' : ''}">${habit.name}</div>
-        <div class="habit-meta">
-          <span class="habit-freq">${freqLabel}</span>
-          ${habit.streak > 0 ? `<span class="habit-streak">🔥 ${habit.streak} streak</span>` : ''}
-          ${habit.reminder_time ? `<span class="habit-reminder">⏰ ${habit.reminder_time.substring(0,5)}</span>` : ''}
-        </div>
-      </div>
-      <button class="habit-edit-btn" onclick="openHabitModal('${habit.id}')">⋯</button>
-    </div>
-  `
-}
-
-// ── TOGGLE HABIT ──────────────────────────────────────────
-window.toggleHabit = async function(habitId, today) {
-  const row     = document.getElementById('hr-' + habitId)
-  const checkEl = row?.querySelector('.habit-check')
-  const nameEl  = row?.querySelector('.habit-name')
-  const isDone  = checkEl?.classList.contains('done')
-
-  if (isDone) {
-    await supabase.from('habit_completions').delete()
-      .eq('habit_id', habitId).eq('completed_date', today)
-    checkEl.classList.remove('done')
-    checkEl.textContent = ''
-    nameEl?.classList.remove('done')
-    row?.classList.remove('habit-row--done')
-  } else {
-    await supabase.from('habit_completions').insert({ habit_id: habitId, completed_date: today })
-
-    const { data: recent } = await supabase.from('habit_completions')
-      .select('completed_date').eq('habit_id', habitId)
-      .order('completed_date', { ascending: false }).limit(400)
-
-    const streak = calculateStreak(recent || [])
-    await supabase.from('habits').update({ streak }).eq('id', habitId)
-
-    checkEl.classList.add('done')
-    checkEl.textContent = '✓'
-    nameEl?.classList.add('done')
-    row?.classList.add('habit-row--done')
-
-    const streakEl = row?.querySelector('.habit-streak')
-    if (streakEl) {
-      streakEl.textContent = `🔥 ${streak} streak`
-    } else {
-      const metaEl = row?.querySelector('.habit-meta')
-      if (metaEl) {
-        const span = document.createElement('span')
-        span.className = 'habit-streak'
-        span.textContent = `🔥 ${streak} streak`
-        metaEl.appendChild(span)
-      }
-    }
-  }
-}
-
-function calculateStreak(completions) {
-  if (!completions.length) return 0
-  let streak = 0
-  let checkDate = new Date()
-  checkDate.setHours(0, 0, 0, 0)
-  const dateSet = new Set(completions.map(c => c.completed_date))
-
-  while (true) {
-    const dateStr = checkDate.toISOString().split('T')[0]
-    if (dateSet.has(dateStr)) {
-      streak++
-      checkDate.setDate(checkDate.getDate() - 1)
-    } else break
-  }
-  return streak
-}
-
-// ── HABIT MODAL ───────────────────────────────────────────
-window.openHabitModal = async function(habitId = null) {
-  let habit = null
-  if (habitId) {
-    const { data } = await supabase.from('habits').select('*').eq('id', habitId).single()
-    habit = data
-  }
-
-  document.getElementById('habit-modal')?.remove()
-
-  // Determine current schedule type
-  const freq = habit?.frequency || 'daily'
-  let scheduleType = 'weekly'
-  if (freq.startsWith('interval:')) scheduleType = 'interval'
-  else if (freq.startsWith('monthly:')) scheduleType = 'monthly'
-  else if (freq.startsWith('yearly:')) scheduleType = 'yearly'
-
-  const selectedDays = scheduleType === 'weekly'
-    ? (freq === 'daily' ? DAY_NAMES : freq === 'weekdays'
-        ? ['mon','tue','wed','thu','fri'] : freq === 'weekends'
-        ? ['sat','sun'] : freq.split(','))
-    : DAY_NAMES
-
-  const intervalDays = freq.startsWith('interval:') ? freq.split(':')[1] : '14'
-  const monthlyDay   = freq.startsWith('monthly:')  ? freq.split(':')[1] : '1'
-  const yearlyMmdd   = freq.startsWith('yearly:')   ? freq.split(':')[1] : '01-01'
-  const [yearlyMonth, yearlyDay] = yearlyMmdd.split('-')
+  document.getElementById('manage-habits-modal')?.remove()
 
   const modal = document.createElement('div')
-  modal.id = 'habit-modal'
+  modal.id = 'manage-habits-modal'
   modal.className = 'popup'
   modal.innerHTML = `
     <div class="popup-box popup-box--wide">
       <div class="popup-header">
-        <div class="popup-title">${habit ? 'Edit habit' : 'New habit'}</div>
-        <button class="popup-close" onclick="closeHabitModal()">✕</button>
+        <div class="popup-title">Manage habits</div>
+        <button class="popup-close" onclick="document.getElementById('manage-habits-modal')?.remove()">✕</button>
       </div>
-
-      <div class="edit-field">
-        <label class="edit-label">Name</label>
-        <input class="popup-input" id="habit-name-input"
-               placeholder="e.g. Morning run" value="${habit?.name || ''}" />
+      <div class="habits-list" id="habits-manage-list">
+        ${(habits || []).map(h => `
+          <div class="habit-manage-item" data-id="${h.id}">
+            <div class="habit-manage-info">
+              <div class="habit-manage-name">${h.name}</div>
+              <div class="habit-manage-freq">${formatFreq(h.frequency)} ${h.reminder_time ? '· ' + h.reminder_time.substring(0,5) : ''}</div>
+            </div>
+            <div class="habit-manage-actions">
+              <button onclick="editHabit('${h.id}')" class="habit-manage-btn">Edit</button>
+              <button onclick="deleteHabit('${h.id}')" class="habit-manage-btn habit-manage-btn--danger">Delete</button>
+            </div>
+          </div>
+        `).join('')}
       </div>
-
-      <div class="edit-field">
-        <label class="edit-label">Schedule type</label>
-        <div class="edit-type-row" id="schedule-type-row">
-          <button class="edit-type-btn ${scheduleType === 'weekly'   ? 'active' : ''}" data-type="weekly"   onclick="switchScheduleType('weekly')">Weekly</button>
-          <button class="edit-type-btn ${scheduleType === 'interval' ? 'active' : ''}" data-type="interval" onclick="switchScheduleType('interval')">Every X days</button>
-          <button class="edit-type-btn ${scheduleType === 'monthly'  ? 'active' : ''}" data-type="monthly"  onclick="switchScheduleType('monthly')">Monthly</button>
-          <button class="edit-type-btn ${scheduleType === 'yearly'   ? 'active' : ''}" data-type="yearly"   onclick="switchScheduleType('yearly')">Yearly</button>
-        </div>
-      </div>
-
-      <!-- Weekly picker -->
-      <div id="schedule-weekly" class="edit-field" style="display:${scheduleType === 'weekly' ? 'flex' : 'none'};flex-direction:column;gap:8px;">
-        <div class="habit-day-picker">
-          ${DAY_NAMES.map((d, i) => `
-            <button class="habit-day-btn ${selectedDays.includes(d) ? 'active' : ''}"
-                    data-day="${d}" onclick="toggleHabitDay(this)">
-              ${DAY_LABELS[i]}
-            </button>
-          `).join('')}
-        </div>
-        <div class="habit-presets">
-          <button class="habit-preset-btn" onclick="setHabitPreset('daily')">Every day</button>
-          <button class="habit-preset-btn" onclick="setHabitPreset('weekdays')">Weekdays</button>
-          <button class="habit-preset-btn" onclick="setHabitPreset('weekends')">Weekends</button>
-        </div>
-      </div>
-
-      <!-- Interval picker -->
-      <div id="schedule-interval" class="edit-field" style="display:${scheduleType === 'interval' ? 'flex' : 'none'};flex-direction:column;gap:8px;">
-        <label class="edit-label">Repeat every</label>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <input class="popup-input" id="interval-days-input" type="number" min="1" max="365"
-                 value="${intervalDays}" style="width:80px;" />
-          <span style="font-size:13px;color:var(--text-dim);">days</span>
-        </div>
-        <div class="habit-presets">
-          <button class="habit-preset-btn" onclick="document.getElementById('interval-days-input').value=7">Weekly</button>
-          <button class="habit-preset-btn" onclick="document.getElementById('interval-days-input').value=14">Biweekly</button>
-          <button class="habit-preset-btn" onclick="document.getElementById('interval-days-input').value=30">Monthly</button>
-          <button class="habit-preset-btn" onclick="document.getElementById('interval-days-input').value=90">Quarterly</button>
-          <button class="habit-preset-btn" onclick="document.getElementById('interval-days-input').value=365">Yearly</button>
-        </div>
-      </div>
-
-      <!-- Monthly picker -->
-      <div id="schedule-monthly" class="edit-field" style="display:${scheduleType === 'monthly' ? 'flex' : 'none'};flex-direction:column;gap:8px;">
-        <label class="edit-label">Day of month</label>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <input class="popup-input" id="monthly-day-input" type="number" min="1" max="31"
-                 value="${monthlyDay}" style="width:80px;" />
-          <span style="font-size:13px;color:var(--text-dim);">of every month</span>
-        </div>
-      </div>
-
-      <!-- Yearly picker -->
-      <div id="schedule-yearly" class="edit-field" style="display:${scheduleType === 'yearly' ? 'flex' : 'none'};flex-direction:column;gap:8px;">
-        <label class="edit-label">Date each year</label>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <select class="popup-input" id="yearly-month-input" style="width:130px;">
-            ${['January','February','March','April','May','June','July','August','September','October','November','December']
-              .map((m, i) => `<option value="${String(i+1).padStart(2,'0')}" ${String(i+1).padStart(2,'0') === yearlyMonth ? 'selected' : ''}>${m}</option>`)
-              .join('')}
-          </select>
-          <input class="popup-input" id="yearly-day-input" type="number" min="1" max="31"
-                 value="${parseInt(yearlyDay)}" style="width:70px;" />
-        </div>
-      </div>
-
-      <div class="edit-field">
-        <label class="edit-label">Reminder time (optional)</label>
-        <input class="popup-input" id="habit-reminder-input" type="time"
-               value="${habit?.reminder_time ? habit.reminder_time.substring(0,5) : ''}" />
-      </div>
-
-      <div class="popup-actions">
-        ${habit ? `<button class="popup-btn popup-btn--danger" onclick="deleteHabit('${habit.id}')">Delete</button>` : '<div></div>'}
-        <div style="display:flex;gap:8px;">
-          <button class="popup-btn" onclick="closeHabitModal()">Cancel</button>
-          <button class="popup-btn popup-btn--primary" onclick="saveHabit('${habitId || ''}')">Save</button>
-        </div>
-      </div>
+      <button class="popup-btn popup-btn--primary" style="margin-top:12px;width:100%;" onclick="showAddHabit()">+ Add habit</button>
     </div>
   `
-
   document.body.appendChild(modal)
-  modal.addEventListener('click', e => { if (e.target === modal) closeHabitModal() })
-  document.getElementById('habit-name-input').focus()
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove() })
 }
 
-window.switchScheduleType = function(type) {
-  document.querySelectorAll('#schedule-type-row .edit-type-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.type === type)
-  })
-  ;['weekly','interval','monthly','yearly'].forEach(t => {
-    const el = document.getElementById('schedule-' + t)
-    if (el) el.style.display = t === type ? 'flex' : 'none'
-  })
-}
-
-window.toggleHabitDay = function(btn) {
-  btn.classList.toggle('active')
-}
-
-window.setHabitPreset = function(preset) {
-  const btns = document.querySelectorAll('.habit-day-btn')
-  if (preset === 'daily') {
-    btns.forEach(b => b.classList.add('active'))
-  } else if (preset === 'weekdays') {
-    btns.forEach(b => b.classList.toggle('active', !['sat','sun'].includes(b.dataset.day)))
-  } else if (preset === 'weekends') {
-    btns.forEach(b => b.classList.toggle('active', ['sat','sun'].includes(b.dataset.day)))
-  }
-}
-
-window.closeHabitModal = function() {
-  document.getElementById('habit-modal')?.remove()
-}
-
-window.saveHabit = async function(habitId) {
-  const name = document.getElementById('habit-name-input').value.trim()
-  if (!name) return
-
-  const activeType = document.querySelector('#schedule-type-row .edit-type-btn.active')?.dataset.type || 'weekly'
-
-  let frequency = 'daily'
-
-  if (activeType === 'weekly') {
-    const activeDays = [...document.querySelectorAll('.habit-day-btn.active')].map(b => b.dataset.day)
-    frequency = activeDays.length === 7 ? 'daily' : activeDays.join(',')
-
-  } else if (activeType === 'interval') {
-    const days = parseInt(document.getElementById('interval-days-input').value) || 1
-    const startDate = new Date().toISOString().split('T')[0]
-    // Preserve existing start date if editing
-    if (habitId) {
-      const { data: existing } = await supabase.from('habits').select('frequency').eq('id', habitId).single()
-      const existingStart = existing?.frequency?.startsWith('interval:') ? existing.frequency.split(':')[2] : null
-      frequency = `interval:${days}:${existingStart || startDate}`
-    } else {
-      frequency = `interval:${days}:${startDate}`
-    }
-
-  } else if (activeType === 'monthly') {
-    const day = parseInt(document.getElementById('monthly-day-input').value) || 1
-    frequency = `monthly:${day}`
-
-  } else if (activeType === 'yearly') {
-    const month = document.getElementById('yearly-month-input').value
-    const day   = String(parseInt(document.getElementById('yearly-day-input').value)).padStart(2, '0')
-    frequency = `yearly:${month}-${day}`
-  }
-
-  const timeVal = document.getElementById('habit-reminder-input').value
-  const payload = {
-    name,
-    frequency,
-    reminder_time: timeVal || null,
-    has_reminder: !!timeVal
-  }
-
-  if (habitId) {
-    await supabase.from('habits').update(payload).eq('id', habitId)
-  } else {
-    await supabase.from('habits').insert({ ...payload, streak: 0, position: 0 })
-  }
-
-  closeHabitModal()
-  initHabits()
+function formatFreq(freq) {
+  if (freq === 'daily') return 'Daily'
+  if (freq === 'weekdays') return 'Weekdays'
+  if (freq === 'weekends') return 'Weekends'
+  if (freq.startsWith('interval:')) return `Every ${freq.split(':')[1]} days`
+  if (freq.startsWith('monthly:')) return `Monthly on day ${freq.split(':')[1]}`
+  if (freq.startsWith('yearly:')) return `Yearly on ${freq.split(':')[1]}`
+  const dayMap = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' }
+  return freq.split(',').map(d => dayMap[d] || d).join(', ')
 }
 
 window.deleteHabit = async function(habitId) {
   if (!confirm('Delete this habit?')) return
   await supabase.from('habits').delete().eq('id', habitId)
-  closeHabitModal()
+  showManageHabits()
+}
+
+window.showAddHabit = function() {
+  document.getElementById('manage-habits-modal')?.remove()
+  showHabitForm(null)
+}
+
+window.editHabit = async function(habitId) {
+  const { data: habit } = await supabase.from('habits').select('*').eq('id', habitId).single()
+  document.getElementById('manage-habits-modal')?.remove()
+  showHabitForm(habit)
+}
+
+function showHabitForm(habit) {
+  document.getElementById('habit-form-modal')?.remove()
+
+  const isEdit = !!habit
+  const freq = habit?.frequency || 'daily'
+  const days = ['mon','tue','wed','thu','fri','sat','sun']
+  const selectedDays = freq.includes(',') ? freq.split(',') : []
+
+  const modal = document.createElement('div')
+  modal.id = 'habit-form-modal'
+  modal.className = 'popup'
+  modal.innerHTML = `
+    <div class="popup-box popup-box--wide">
+      <div class="popup-header">
+        <div class="popup-title">${isEdit ? 'Edit habit' : 'Add habit'}</div>
+        <button class="popup-close" onclick="closeHabitForm()">✕</button>
+      </div>
+      <div class="edit-field">
+        <label class="edit-label">Name</label>
+        <input class="popup-input" id="habit-name" value="${habit?.name || ''}" placeholder="Habit name..." />
+      </div>
+      <div class="edit-field">
+        <label class="edit-label">Frequency</label>
+        <select class="popup-input" id="habit-freq-select" onchange="updateHabitFreqUI()">
+          <option value="daily" ${freq==='daily'?'selected':''}>Daily</option>
+          <option value="weekdays" ${freq==='weekdays'?'selected':''}>Weekdays</option>
+          <option value="weekends" ${freq==='weekends'?'selected':''}>Weekends</option>
+          <option value="custom" ${freq.includes(',')?'selected':''}>Custom days</option>
+          <option value="interval" ${freq.startsWith('interval:')?'selected':''}>Every N days</option>
+          <option value="monthly" ${freq.startsWith('monthly:')?'selected':''}>Monthly</option>
+        </select>
+      </div>
+      <div id="habit-custom-days" style="display:${freq.includes(',') ? 'flex' : 'none'};gap:6px;flex-wrap:wrap;margin-top:4px;">
+        ${days.map(d => `
+          <button class="habit-day-btn ${selectedDays.includes(d) ? 'active' : ''}"
+                  data-day="${d}" onclick="toggleDay(this)">${d}</button>
+        `).join('')}
+      </div>
+      <div id="habit-interval-field" style="display:${freq.startsWith('interval:') ? 'block' : 'none'};margin-top:4px;">
+        <input class="popup-input" id="habit-interval-n" type="number" min="1" value="${freq.startsWith('interval:') ? freq.split(':')[1] : 2}" placeholder="Every N days" />
+      </div>
+      <div id="habit-monthly-field" style="display:${freq.startsWith('monthly:') ? 'block' : 'none'};margin-top:4px;">
+        <input class="popup-input" id="habit-monthly-day" type="number" min="1" max="31" value="${freq.startsWith('monthly:') ? freq.split(':')[1] : 1}" placeholder="Day of month" />
+      </div>
+      <div class="edit-field" style="margin-top:8px;">
+        <label class="edit-label">Reminder time (optional)</label>
+        <input class="popup-input" id="habit-reminder" type="time" value="${habit?.reminder_time ? habit.reminder_time.substring(0,5) : ''}" />
+      </div>
+      <div class="popup-actions">
+        <button class="popup-btn" onclick="closeHabitForm()">Cancel</button>
+        <button class="popup-btn popup-btn--primary" onclick="saveHabit('${habit?.id || ''}')">Save</button>
+      </div>
+    </div>
+  `
+  document.body.appendChild(modal)
+  modal.addEventListener('click', e => { if (e.target === modal) closeHabitForm() })
+  document.getElementById('habit-name').focus()
+}
+
+window.updateHabitFreqUI = function() {
+  const val = document.getElementById('habit-freq-select').value
+  document.getElementById('habit-custom-days').style.display = val === 'custom' ? 'flex' : 'none'
+  document.getElementById('habit-interval-field').style.display = val === 'interval' ? 'block' : 'none'
+  document.getElementById('habit-monthly-field').style.display = val === 'monthly' ? 'block' : 'none'
+}
+
+window.toggleDay = function(btn) {
+  btn.classList.toggle('active')
+}
+
+window.closeHabitForm = function() {
+  document.getElementById('habit-form-modal')?.remove()
+}
+
+window.saveHabit = async function(habitId) {
+  const name = document.getElementById('habit-name').value.trim()
+  if (!name) return
+
+  const freqSelect = document.getElementById('habit-freq-select').value
+  let frequency = freqSelect
+
+  if (freqSelect === 'custom') {
+    const activeDays = [...document.querySelectorAll('.habit-day-btn.active')].map(b => b.dataset.day)
+    if (!activeDays.length) return
+    frequency = activeDays.join(',')
+  } else if (freqSelect === 'interval') {
+    const n = document.getElementById('habit-interval-n').value
+    frequency = `interval:${n}`
+  } else if (freqSelect === 'monthly') {
+    const day = document.getElementById('habit-monthly-day').value
+    frequency = `monthly:${day}`
+  }
+
+  const reminder_time = document.getElementById('habit-reminder').value || null
+
+  if (habitId) {
+    await supabase.from('habits').update({ name, frequency, reminder_time }).eq('id', habitId)
+  } else {
+    await supabase.from('habits').insert({ name, frequency, reminder_time, position: 0 })
+  }
+
+  closeHabitForm()
   initHabits()
 }

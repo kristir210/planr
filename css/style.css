@@ -2121,3 +2121,111 @@ html, body {
 .notes-body a:hover {
   opacity: 0.8;
 }
+/* ── DAILY VIEW ───────────────────────────────────────── */
+.daily-section-label {
+  font-size: 9px;
+  color: var(--text-dim, #7a6e58);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 12px 20px 6px;
+}
+
+.daily-section-label--tasks {
+  border-top: 1px solid var(--border, #353024);
+  margin-top: 8px;
+  padding-top: 16px;
+}
+
+.daily-ws-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  border-left: 2px solid;
+  padding: 8px 20px 4px 14px;
+}
+
+.daily-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  margin: 0 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.daily-item:hover { background: var(--bg-mid, #222018); }
+
+.daily-item--done .daily-item-title {
+  text-decoration: line-through;
+  color: var(--text-dim, #7a6e58);
+}
+
+.daily-check {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+}
+
+.daily-check--circle {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid #7a6e58;
+}
+
+.daily-check--circle.daily-check--checked {
+  background: #5a7a5830;
+  border-color: #5a7a58;
+  color: #5a7a58;
+}
+
+.daily-check--square {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1.5px solid;
+}
+
+.daily-item-title {
+  font-size: 13px;
+  color: var(--text, #b5a68c);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.daily-item-time {
+  font-size: 10px;
+  color: var(--text-dim, #7a6e58);
+  flex-shrink: 0;
+}
+
+.daily-overdue-badge {
+  font-size: 11px;
+  color: #b05050;
+  flex-shrink: 0;
+}
+
+.daily-empty {
+  font-size: 12px;
+  color: var(--text-dim, #7a6e58);
+  padding: 8px 20px;
+}
+
+.habits-manage-btn {
+  font-size: 11px;
+  font-family: inherit;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border, #353024);
+  background: none;
+  color: var(--text-dim, #7a6e58);
+  cursor: pointer;
+}
+
+.habits-manage-btn:hover { color: var(--text, #b5a68c); border-color: #4a4438; }
